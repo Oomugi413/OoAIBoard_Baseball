@@ -167,10 +167,32 @@ fieldset {
 .board-card {
   display: grid;
   gap: 12px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid #d6dde8;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.board-card-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.board-card-main strong,
+.board-card-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-card-main strong {
+  font-size: 17px;
+}
+
+.board-card-main span {
+  color: #374151;
+  font-size: 15px;
 }
 
 .card-actions {

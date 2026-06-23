@@ -290,7 +290,10 @@ function teamRowHtml(team, score, absCount) {
 function boardCardHtml(board) {
   return `
     <article class="board-card">
-      ${scoreboardHtml(board)}
+      <div class="board-card-main">
+        <strong>${escapeHtml(board.name)}</strong>
+        <span>${escapeHtml(matchupSummary(board))}</span>
+      </div>
       <div class="card-actions">
         <input data-rename-board="${board.id}" value="${escapeHtml(board.name)}" aria-label="スコアボード名">
         <button class="primary" data-open-board="${board.id}">選択</button>
@@ -568,6 +571,14 @@ function batterLine(batter) {
   const hits = (batter.homeRuns || 0) + (batter.hits || 0);
   const atBats = (batter.homeRuns || 0) + (batter.hits || 0) + (batter.strikeoutsSwinging || 0) + (batter.strikeoutsLooking || 0) + (batter.outs || 0);
   return `${hits}-${atBats}`;
+}
+
+function matchupSummary(board) {
+  const gameState = board.gameState;
+  const away = board.teamSettings.away;
+  const home = board.teamSettings.home;
+  const inningHalf = gameState.inningHalf === "top" ? "表" : "裏";
+  return `${away.abbreviation || away.name} ${gameState.score.away}-${gameState.score.home} ${home.abbreviation || home.name} ${gameState.inningNumber}回${inningHalf}`;
 }
 
 function activeOverlay(overlay) {
