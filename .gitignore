@@ -1,0 +1,4 @@
+storage/data/*.json
+storage/*.log
+storage/uploads/
+node_modules/

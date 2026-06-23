@@ -1,0 +1,10 @@
+{
+  "name": "baseball-scoreboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server/index.mjs",
+    "test": "node tests/scoringRules.test.mjs"
+  }
+}

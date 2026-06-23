@@ -1,0 +1,557 @@
+# Baseball Scoreboard Design Blueprint
+
+このファイルは、野球スコアボードアプリを作る前段階の設計図です。
+まだコードは作成せず、画面構成、データ構造、必要ファイル、今後決めることを整理します。
+
+詳細ファイル:
+
+- データ構造の詳細: `data_model.md`
+- 操作ルールの詳細: `operation_rules.md`
+- ボタン一覧の詳細: `button_list.md`
+- 起動、終了、基本的な使い方の説明: `user_guide.txt`
+
+## 1. Project Summary
+
+ローカルPCで起動し、ブラウザからアクセスできる野球用スコアボードを作る。
+同一ネットワーク上の別端末からもアクセスできる前提とし、PC側のポート開放やネットワーク設定はこのアプリでは扱わない。
+
+Codex GUI上でのやり取りや画面文言は日本語にする。
+ただし、フォルダ名とファイル名は英語アルファベットで統一する。
+
+主な利用シーンは、配信画面にスコアボードを重ねること、別画面からスコアを操作すること、チーム情報や選手名を保存して再利用すること。
+
+対応環境の前提:
+
+- アプリを起動するコンピューターは、将来的にWindowsとLinuxの両対応を前提とする。
+- ブラウザからアクセスする端末は、Windows、Linux、macOS、スマホを対象にする。
+- 起動したコンピューター自身では、`http://localhost:52582` でアクセスできることを基本とする。
+- 同一ネットワーク上の別端末からは、起動したコンピューターのIPアドレスとポート番号でアクセスする。
+
+ポート番号の方針:
+
+- デフォルトのポート番号は `52582` とする。
+- 追加で別のポート番号が必要な場合は、`52583`, `52584` のように続きの番号を使う。
+- PC側のポート開放やファイアウォール設定は、このアプリでは自動変更しない。
+
+## 2. Recommended Tech Stack
+
+実装時の候補は以下。
+
+- Frontend: React + TypeScript + Vite
+- Backend: Node.js + Express
+- Realtime: Socket.IO
+- Storage: SQLite
+- Styling: CSS Modules または通常のCSS
+- Logo storage: ローカルのアップロード用フォルダに保存
+
+理由:
+
+- ブラウザ表示と操作画面を分けやすい。
+- Socket.IOにより、操作画面の変更を閲覧画面へ即時反映しやすい。
+- SQLiteにより、プリセットや設定をアプリ終了後も保存しやすい。
+- TypeScriptにより、スコア状態や操作履歴の扱いを安全にしやすい。
+- Node.js系の構成により、将来的なWindows/Linux両対応を進めやすい。
+
+## 3. Page Structure
+
+### 3.1 Home Page
+
+トップページ。
+
+配置するボタン:
+
+- スコアボードを見る
+- スコアボードを動かす
+
+設定ページへの導線は、トップページではなく「スコアボードを動かす」側のメニュー、またはスコア入力画面の編集メニューから用意する。
+
+想定URL:
+
+- `/`
+
+### 3.2 Viewer Page
+
+稼働中のスコアボードをすべて並べて表示するページ。
+配信ソフトのブラウザソースで使うことを想定する。
+
+主な機能:
+
+- 稼働中スコアボードの一覧表示
+- 各スコアボードの表示位置変更
+- ページ全体の拡大、縮小
+- 端末ごとのスコアボードサイズ変更
+- 背景色の変更
+- 表示設定の保存
+- 操作画面からの変更をリアルタイム反映
+
+サイズ方針:
+
+- デフォルトでは、スコアボードの横幅、高さ、比率を画面幅に応じて自動設定する。
+- 自動設定後のサイズは表示中の端末ごとに固定値として扱う。
+- 複数端末で表示する場合、スコアボード表示ページのプロパティから端末ごとにサイズを編集できる。
+- 端末ごとのサイズ変更は、他の端末の表示サイズには影響させない。
+- 端末ごとの表示プロパティはブラウザ内に保存する。
+- ブラウザ側で表示プロパティを入出力できるようにする。
+- 配信画面用に操作UIを完全に非表示にする専用モードは将来追加できる設計にするが、優先度は最下位とする。
+
+想定URL:
+
+- `/viewer`
+
+保存対象:
+
+- viewer background color
+- viewer scale
+- per-device board size
+- scoreboard positions
+- scoreboard display order
+- viewer property export data
+
+### 3.3 Control List Page
+
+「スコアボードを動かす」ページ。
+稼働中のスコアボードを並べて表示し、選択してスコア入力画面に入る。
+
+主な機能:
+
+- 稼働中スコアボードの一覧表示
+- 新規スコアボード作成
+- スコアボード選択
+- スコアボード名変更
+- 不要なスコアボード削除
+
+削除時の扱い:
+
+- そのスコアボードの試合状態、選手名、操作履歴は削除する。
+- チームプリセット、共通設定、表示設定は削除しない。
+- 手動でスコアボードを削除する場合は、必ず確認を取る。
+- 24時間アクセスなしの自動削除では、確認を取らずに削除する。
+
+想定URL:
+
+- `/control`
+
+### 3.4 Score Input Page
+
+個別スコアボードの操作画面。
+
+主な機能:
+
+- ボール、ストライク、アウト、得点、ランナー、イニングの操作
+- 一塁、二塁、三塁のランナーON/OFF
+- 先攻、後攻それぞれの得点 +1 / -1
+- 打席結果の入力
+- ABS回数の操作
+- 戻る、進む
+- 編集メニューの表示
+- 選手名メニューの表示
+- 操作結果を閲覧画面へリアルタイム反映
+
+想定URL:
+
+- `/control/:boardId`
+
+### 3.5 Settings Page
+
+アプリ全体の設定画面。
+
+主な機能:
+
+- チームプリセットの作成、編集、削除
+- プリセット名の編集
+- チームロゴ、略称、チームカラー、文字色の保存
+- 汎用設定の追加
+- アクセスがない場合の自動削除設定
+- 一時演出の表示秒数設定
+
+想定URL:
+
+- `/settings`
+
+## 4. Scoreboard Visual Design
+
+現在の参考画像は `デザイン案.jpg`。
+実装時に素材として整理する場合は、英字ファイル名の `design_idea.jpg` などへ移す。
+元画像の細かなズレは再現せず、実装時はバランスを整えて配置する。
+
+基本レイアウト:
+
+- 全体は黒背景の横長スコアボード
+- 左側にイニング表示
+- 中央にチーム情報と得点
+- 右側にランナー、カウント、アウト数
+- 上側に対戦選手表示オプション
+
+表示要素:
+
+- イニング数
+- 表、裏の表示
+- 先攻チームロゴ
+- 先攻チーム略称
+- 先攻得点
+- 後攻チームロゴ
+- 後攻チーム略称
+- 後攻得点
+- ランナー表示
+- ボール、ストライク
+- アウト数
+- ABSチャレンジ残数
+- バッター名
+- ピッチャー名
+- バッター成績
+- ピッチャー球数
+- 一時演出表示
+
+一時演出:
+
+- ホームラン時: `HOME RUN`
+- 空振り三振時: `K`
+- 見逃し三振時: 逆向きの `K`
+- 表示秒数はスコアボードごとではなく、全体の設定で変更する。
+
+得点はスコアボード内で最も大きく表示する。
+チームカラー上の文字色はチームごとに設定可能とし、初期値は白にする。
+
+## 5. Main Data Model
+
+この章の詳細は `data_model.md` に記載する。
+設計変更時は、この親設計書ではなく `data_model.md` を更新する。
+
+`data_model.md` に含める内容:
+
+- Board
+- Game State
+- Team Settings
+- Team Preset
+- Player Settings
+- Viewer Settings
+- General Settings
+- Persistence Summary
+
+## 6. Operation Rules
+
+この章の詳細は `operation_rules.md` に記載する。
+設計変更時は、この親設計書ではなく `operation_rules.md` を更新する。
+
+`operation_rules.md` に含める内容:
+
+- Pitch Buttons
+- Plate Appearance Buttons
+- Out Buttons
+- Change Button
+- Runner Controls
+- Manual Score Controls
+- ABS Controls
+- Board Management Controls
+- Viewer Property Controls
+- Undo and Redo
+- Realtime Sync
+- Automatic Cleanup
+- Overlay Timing
+
+## 7. Menus
+
+### 7.1 Edit Menu
+
+スコア入力画面から横に出てくるメニュー。
+
+編集できる内容:
+
+- スコアボード名
+- 先攻チームロゴ
+- 先攻チーム略称
+- 先攻チームカラー
+- 先攻文字色
+- 後攻チームロゴ
+- 後攻チーム略称
+- 後攻チームカラー
+- 後攻文字色
+- ABS表示オプション
+- 対戦選手表示オプション
+- チームプリセット読み込み
+- チームプリセット書き出し
+
+### 7.2 Player Menu
+
+対戦選手表示オプションが有効な場合に使うメニュー。
+
+編集できる内容:
+
+- 先攻打者 1-9番
+- 後攻打者 1-9番
+- 守備位置
+- 代打チェック
+- 先攻ピッチャー一覧
+- 後攻ピッチャー一覧
+- ピッチャー追加
+
+表示ルール:
+
+- バッターは常に上。
+- ピッチャーは常に下。
+- 表裏に応じて色は攻撃側、守備側に入れ替わる。
+- 代打時は打順番号を `PH` と表示する。
+
+### 7.3 Global Settings
+
+全体の設定画面で編集する内容。
+
+- 自動削除の有効/無効
+- 自動削除までのアクセスなし時間
+- 一時演出の表示秒数
+- チームプリセット
+
+一時演出の表示秒数は、個別スコアボードの編集メニューには置かない。
+
+### 7.4 Viewer Property Panel
+
+Viewer Pageで開く表示プロパティ用のパネル。
+
+編集できる内容:
+
+- 背景色
+- ページ全体の拡大率
+- 端末ごとのスコアボードサイズ
+- スコアボードの表示位置
+- 表示プロパティの書き出し
+- 表示プロパティの読み込み
+
+このパネルの設定は端末ごとの見え方を調整するためのもので、試合状態には影響しない。
+
+### 7.5 Delete Confirmation Dialog
+
+手動削除時に表示する確認ダイアログ。
+
+表示する場面:
+
+- Control List Pageからスコアボードを削除するとき
+
+ルール:
+
+- 削除対象のスコアボード名を表示する。
+- 確認後にのみ削除する。
+- 24時間アクセスなしの自動削除では表示しない。
+
+## 8. Needed File Structure
+
+実装時に作る想定のファイル構成。
+現時点ではまだ作成しない。
+
+```text
+baseball-scoreboard/
+  docs/
+    scoreboard_design.md
+    data_model.md
+    operation_rules.md
+    button_list.md
+    user_guide.txt
+  package.json
+  tsconfig.json
+  vite.config.ts
+  src/
+    client/
+      main.tsx
+      App.tsx
+      routes/
+        HomePage.tsx
+        ViewerPage.tsx
+        ControlListPage.tsx
+        ScoreInputPage.tsx
+        SettingsPage.tsx
+      components/
+        scoreboard/
+          ScoreboardView.tsx
+          InningPanel.tsx
+          TeamRow.tsx
+          RunnerPanel.tsx
+          CountPanel.tsx
+          PlayerMatchupPanel.tsx
+          AbsIndicator.tsx
+          OverlayMessage.tsx
+        controls/
+          PitchControls.tsx
+          PlateAppearanceControls.tsx
+          OutControls.tsx
+          RunnerControls.tsx
+          ScoreControls.tsx
+          BoardManagementControls.tsx
+          HistoryControls.tsx
+          InningControls.tsx
+        menus/
+          EditMenu.tsx
+          PlayerMenu.tsx
+        settings/
+          TeamPresetEditor.tsx
+          GeneralSettingsEditor.tsx
+          ViewerPropertyPanel.tsx
+          ColorInput.tsx
+          LogoUploader.tsx
+      api/
+        boardApi.ts
+        presetApi.ts
+        socketClient.ts
+      state/
+        scoreboardReducer.ts
+        operationHistory.ts
+      styles/
+        global.css
+        scoreboard.css
+    server/
+      index.ts
+      routes/
+        boardRoutes.ts
+        presetRoutes.ts
+        settingsRoutes.ts
+      realtime/
+        socketServer.ts
+      services/
+        boardService.ts
+        presetService.ts
+        settingsService.ts
+        cleanupService.ts
+        imageService.ts
+      db/
+        database.ts
+        schema.sql
+        migrations/
+    shared/
+      types/
+        scoreboard.ts
+        team.ts
+        player.ts
+        settings.ts
+        viewer.ts
+      operations/
+        scoreboardActions.ts
+        scoringRules.ts
+  storage/
+    data/
+      app.db
+    uploads/
+      team-logos/
+  tests/
+    scoringRules.test.ts
+    scoreboardReducer.test.ts
+    cleanupService.test.ts
+    imageService.test.ts
+```
+
+### File Responsibilities
+
+`docs/`
+
+- `scoreboard_design.md` は、全体設計、画面構成、ファイル構造、実装順を置く。
+- `data_model.md` は、データ構造、保存対象、削除対象、設定値を置く。
+- `operation_rules.md` は、ボタン操作、状態変化、リアルタイム反映、自動削除のルールを置く。
+- `button_list.md` は、画面ごとに必要なボタンと操作項目の一覧を置く。
+- `user_guide.txt` は、コーディングに詳しくない人向けの起動、終了、基本操作の説明を置く。
+
+`src/client/routes/`
+
+- 各ページ単位の画面を置く。
+- URLごとの表示内容を分ける。
+
+`src/client/components/scoreboard/`
+
+- 配信や閲覧で見えるスコアボード本体を置く。
+- 操作ボタンは置かず、表示専用にする。
+
+`src/client/components/controls/`
+
+- スコア入力画面の操作ボタン群を置く。
+
+`src/client/components/menus/`
+
+- 編集メニューと選手名メニューを置く。
+
+`src/client/api/`
+
+- サーバーとの通信処理を置く。
+
+`src/client/state/`
+
+- 操作による状態変更、戻る、進むの処理を置く。
+
+`src/server/`
+
+- ローカルサーバー、保存処理、リアルタイム通信を置く。
+- `cleanupService.ts` は、24時間アクセスなしの自動削除を扱う。
+- `imageService.ts` は、ロゴ画像の256x256変換、形式チェック、圧縮を扱う。
+
+`src/shared/`
+
+- クライアントとサーバーの両方で使う型やルールを置く。
+
+`storage/`
+
+- 実行時に生成されるデータベースやロゴ画像を置く。
+- Git管理対象から外す想定。
+
+## 9. Realtime Sync Design
+
+リアルタイム反映の詳細は `operation_rules.md` の `Realtime Sync` に記載する。
+親設計書では、操作画面の変更をサーバー経由で閲覧画面へ反映する方針だけを管理する。
+
+## 10. Persistence Rules
+
+保存対象、削除対象、自動削除の詳細は `data_model.md` の `Persistence Summary` と `General Settings`、および `operation_rules.md` の `Automatic Cleanup` に記載する。
+親設計書では、アプリ終了後も必要な設定を保存し、スコアボード削除時の扱いを詳細ファイルへ委譲する方針だけを管理する。
+
+## 11. Implementation Order
+
+実装に進む場合の推奨順。
+
+1. プロジェクト雛形を作る。
+2. スコアボード表示だけを先に作る。
+3. ダミーデータでデザインを整える。
+4. スコア状態の型と操作ルールを作る。
+5. スコア入力画面を作る。
+6. 閲覧画面と操作画面をリアルタイム連携する。
+7. チームプリセットを保存できるようにする。
+8. ロゴアップロードと256x256変換を追加する。
+9. 選手名メニューと成績計算を追加する。
+10. 戻る、進むを追加する。
+11. 複数端末操作の競合処理を確認する。
+12. 複数スコアボード表示と削除を仕上げる。
+13. 自動削除設定を追加する。
+14. 削除確認を追加する。
+15. 配信用の背景色、拡大率、位置調整を仕上げる。
+16. 端末ごとの表示プロパティの入出力を追加する。
+17. 閲覧画面の完全非表示UIモードを将来追加できる余地を残す。
+
+## 12. Coding Rules
+
+実装時のルール。
+
+- Windows/Linuxの各環境で前提となる要件は、`user_guide.txt` にまとめる。
+- 依存関係や起動方法が変わった場合は、コードだけでなく `user_guide.txt` も更新する。
+- 前提要件は、コーディングに詳しくない人が別途ChatGPTなどに質問してインストール手順を確認できる粒度で書く。
+- 前提要件は、公式のインストール手順を実行すれば達成できる粒度で書く。
+- 公式手順を丸ごと転載する必要はない。
+- 例: Windows環境では、Node.jsとnpmがインストールされており、PATHが通っている必要がある。
+- OS依存のパス区切りやシェル固有の書き方をコードに直接埋め込まない。
+- Windows/Linux両対応を崩す依存を追加する場合は、代替案や導入理由を設計書に残す。
+
+## 13. Confirmed Decisions
+
+確定済みの詳細仕様は、重複管理を避けるため以下のファイルに集約する。
+
+- データ、保存、設定に関する決定: `data_model.md`
+- 操作、リアルタイム反映、自動削除に関する決定: `operation_rules.md`
+
+親設計書には、画面構成、見た目の方向性、ファイル構造、実装順のみを残す。
+
+## 14. Remaining Open Questions
+
+現時点ではなし。
+
+## 15. Design Notes
+
+デザイン実装時の注意。
+
+- 得点を最も目立たせる。
+- 黒背景の中で、チームカラー、白文字、カウント表示が読みやすいようにする。
+- 小さい配信画面でも読める文字サイズにする。
+- ボタン画面は操作ミスを防ぐため、種類ごとにまとまりを分ける。
+- 配信用Viewer Pageには余計な説明文を出さない。
+- スコアボード本体と操作画面は部品を分け、同じ見た目を再利用できるようにする。
