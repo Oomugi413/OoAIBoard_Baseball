@@ -291,6 +291,7 @@ fieldset {
 }
 
 .matchup {
+  position: relative;
   display: grid;
   grid-template-columns: 58px 1fr 78px;
   align-items: center;
@@ -301,8 +302,15 @@ fieldset {
   line-height: 1;
 }
 
-.matchup > :nth-child(-n + 3) {
-  border-bottom: 2px solid #ffffff;
+.matchup::after {
+  position: absolute;
+  top: calc(50% + 4px);
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  background: #ffffff;
+  content: "";
+  pointer-events: none;
 }
 
 .matchup > div {
@@ -329,9 +337,9 @@ fieldset {
 
 .score-main {
   display: grid;
-  grid-template-columns: 48px 1fr 110px;
+  grid-template-columns: 66px 1fr 140px;
   height: 66%;
-  padding: 0 10px 10px;
+  padding: 0 12px 10px;
 }
 
 .inning-panel {
@@ -340,22 +348,22 @@ fieldset {
   align-content: center;
   gap: 8px;
   background: #050505;
-  font-size: 24px;
+  font-size: 34px;
 }
 
 .triangle {
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
 }
 
 .triangle.up {
-  border-bottom: 20px solid #ffffff;
+  border-bottom: 28px solid #ffffff;
 }
 
 .triangle.down {
-  border-top: 20px solid #ffffff;
+  border-top: 28px solid #ffffff;
 }
 
 .team-area {
@@ -367,7 +375,7 @@ fieldset {
 
 .team-row {
   display: grid;
-  grid-template-columns: 10px 44px 1fr 64px;
+  grid-template-columns: 10px 44px 1fr 86px;
   gap: 8px;
   align-items: center;
   min-width: 0;
@@ -390,13 +398,13 @@ fieldset {
 
 .team-name {
   overflow: hidden;
-  font-size: clamp(18px, 5vw, 30px);
+  font-size: clamp(25px, 7vw, 42px);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .team-score {
-  font-size: clamp(34px, 10vw, 58px);
+  font-size: clamp(48px, 14vw, 81px);
   line-height: 1;
   text-align: right;
 }
@@ -419,22 +427,22 @@ fieldset {
 .status-panel {
   display: grid;
   align-content: center;
-  gap: 8px;
-  padding-left: 10px;
-  font-size: clamp(18px, 5vw, 28px);
+  gap: 9px;
+  padding-left: 12px;
+  font-size: clamp(25px, 7vw, 39px);
 }
 
 .bases {
   position: relative;
-  width: 76px;
-  height: 56px;
+  width: 106px;
+  height: 78px;
 }
 
 .bases span {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 4px solid #ffffff;
+  width: 34px;
+  height: 34px;
+  border: 5px solid #ffffff;
   transform: rotate(45deg);
 }
 
@@ -444,18 +452,18 @@ fieldset {
 }
 
 .bases span:nth-child(1) {
-  left: 26px;
+  left: 36px;
   top: 0;
 }
 
 .bases span:nth-child(2) {
   left: 0;
-  top: 26px;
+  top: 36px;
 }
 
 .bases span:nth-child(3) {
   right: 0;
-  top: 26px;
+  top: 36px;
 }
 
 .count,
