@@ -400,7 +400,10 @@ function bindViewerToolbar() {
   const bg = document.querySelector("#viewer-bg");
   const scale = document.querySelector("#viewer-scale");
   const size = document.querySelector("#viewer-size");
-  bg?.addEventListener("input", () => updateViewerSettings({ backgroundColor: bg.value }));
+  bg?.addEventListener("input", () => {
+    viewerSettings = persistViewerSettings({ backgroundColor: bg.value });
+    document.body.style.background = viewerSettings.backgroundColor;
+  });
   scale?.addEventListener("input", () => updateViewerSettings({ scale: Number(scale.value) }));
   size?.addEventListener("input", () => updateViewerSettings({ boardWidth: Number(size.value) }));
   document.querySelector("#viewer-export")?.addEventListener("click", () => {
@@ -520,12 +523,17 @@ function emptyState(message) {
 }
 
 function updateViewerSettings(next) {
-  viewerSettings = {
+  viewerSettings = persistViewerSettings(next);
+  render();
+}
+
+function persistViewerSettings(next) {
+  const updated = {
     ...viewerSettings,
     ...next
   };
-  localStorage.setItem(viewerSettingsKey, JSON.stringify(viewerSettings));
-  render();
+  localStorage.setItem(viewerSettingsKey, JSON.stringify(updated));
+  return updated;
 }
 
 function loadViewerSettings() {

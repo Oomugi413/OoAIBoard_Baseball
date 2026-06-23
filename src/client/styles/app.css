@@ -1,6 +1,6 @@
 :root {
   color: #111827;
-  font-family: Arial, "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-family: "Noto Sans JP", "Noto Sans", Arial, "Hiragino Sans", "Yu Gothic", sans-serif;
   font-size: 16px;
 }
 
@@ -286,28 +286,45 @@ fieldset {
   background: #030303;
   color: #ffffff;
   border-radius: 4px;
-  font-weight: 800;
+  font-family: "Noto Sans JP", "Noto Sans", Arial, "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-weight: 900;
 }
 
 .matchup {
   display: grid;
-  grid-template-columns: 46px 1fr 70px;
+  grid-template-columns: 58px 1fr 78px;
   align-items: center;
   gap: 0;
   height: 34%;
-  padding: 8px 10px 0;
-  font-size: clamp(13px, 4vw, 24px);
+  padding: 8px 12px 0;
+  font-size: clamp(16px, 4.6vw, 29px);
+  line-height: 1;
+}
+
+.matchup > :nth-child(-n + 3) {
+  border-bottom: 2px solid #ffffff;
+}
+
+.matchup > div {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-chip {
   display: grid;
-  min-height: 32px;
+  width: 50px;
+  min-height: 40px;
   place-items: center;
   color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
 }
 
 .stat {
   text-align: right;
+  font-size: 25px;
 }
 
 .score-main {
