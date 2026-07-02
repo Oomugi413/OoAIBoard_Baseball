@@ -14,7 +14,7 @@
     font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Yu Gothic", sans-serif;
   }
   .stage {
-    width: 1360px;
+    width: 1400px;
     filter: drop-shadow(0 26px 46px rgba(0,0,0,0.45));
   }
   .stage svg { width: 100%; height: auto; display: block; }
@@ -29,7 +29,7 @@
 </head>
 <body>
   <div class="stage">
-    <svg viewBox="0 0 1160 560" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <!-- Materials -->
         <linearGradient id="boardBg" x1="0" y1="0" x2="0" y2="1">
@@ -90,32 +90,32 @@
       </defs>
 
       <!-- Frame -->
-      <rect x="4" y="4" width="1152" height="552" rx="20" fill="url(#bezel)"/>
-      <rect x="6" y="5" width="1148" height="6" rx="3" fill="#6d778c" opacity="0.5"/>
-      <rect x="13" y="13" width="1134" height="534" rx="12" fill="url(#boardBg)"/>
-      <rect x="13.75" y="13.75" width="1132.5" height="532.5" rx="11" fill="none" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.5"/>
+      <rect x="4" y="4" width="1192" height="552" rx="20" fill="url(#bezel)"/>
+      <rect x="6" y="5" width="1188" height="6" rx="3" fill="#6d778c" opacity="0.5"/>
+      <rect x="13" y="13" width="1174" height="534" rx="12" fill="url(#boardBg)"/>
+      <rect x="13.75" y="13.75" width="1172.5" height="532.5" rx="11" fill="none" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.5"/>
 
       <!-- ===== TOP BAND (matchup) ===== -->
-      <rect x="20" y="20" width="1120" height="170" rx="8" fill="url(#topBand)"/>
+      <rect x="20" y="20" width="1160" height="170" rx="8" fill="url(#topBand)"/>
 
       <!-- Batter row -->
       <rect x="30" y="30" width="62" height="62" rx="11" fill="#e11d2f"/>
       <rect x="30" y="30" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14"/>
       <text class="chip" x="61" y="74" text-anchor="middle">1</text>
       <text class="name" x="110" y="82">N.Batter</text>
-      <text class="stat" x="1130" y="79" text-anchor="end">0-0</text>
+      <text class="stat" x="1170" y="79" text-anchor="end">0-0</text>
 
-      <line x1="30" y1="110" x2="1130" y2="110" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
+      <line x1="30" y1="110" x2="1170" y2="110" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
 
       <!-- Pitcher row -->
       <rect x="30" y="120" width="62" height="62" rx="11" fill="#2743e0"/>
       <rect x="30" y="120" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14"/>
       <text class="chip" x="61" y="164" text-anchor="middle">P</text>
       <text class="name" x="110" y="172">N.Pitcher</text>
-      <text class="stat" x="1130" y="169" text-anchor="end">P.32</text>
+      <text class="stat" x="1170" y="169" text-anchor="end">P.32</text>
 
       <!-- Section separator -->
-      <rect x="20" y="198" width="1120" height="2.5" rx="1.25" fill="url(#accent)"/>
+      <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill="url(#accent)"/>
 
       <!-- ===== SCORE MAIN ===== -->
       <!-- Inning panel: number vertically centered in the panel, triangle above -->
@@ -124,47 +124,47 @@
       <line x1="150" y1="214" x2="150" y2="540" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
 
       <!-- Away team bar: name area fits 6 zenkaku chars -->
-      <rect x="162" y="212" width="774" height="158" rx="13" fill="url(#awayBar)"/>
-      <rect x="162" y="212" width="774" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
+      <rect x="162" y="212" width="808" height="158" rx="13" fill="url(#awayBar)"/>
+      <rect x="162" y="212" width="808" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
       <!-- ABS pips (remaining challenges) -->
       <rect x="174" y="244" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
       <rect x="174" y="296" width="13" height="42" rx="5" fill="#ffffff" opacity="0.35"/>
-      <!-- Logo (baseball placeholder) -->
-      <circle cx="246" cy="291" r="43" fill="#f6f7f9" stroke="#c8ced8" stroke-width="2"/>
-      <path d="M 220 262 Q 238 291 220 320" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
-      <path d="M 272 262 Q 254 291 272 320" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
-      <text class="abbr" x="302" y="316">ソフトバンク</text>
-      <!-- Score slot: fixed region x 746-936 flush to bar right edge, digits centered -->
-      <line x1="746" y1="226" x2="746" y2="356" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
-      <text class="score" x="841" y="345" text-anchor="middle" filter="url(#glowW)">1</text>
+      <!-- Logo placeholder: drawn borderless, as a transparent logo image would be -->
+      <circle cx="263" cy="291" r="64" fill="#f6f7f9"/>
+      <path d="M 224 248 Q 251 291 224 334" fill="none" stroke="#e11d2f" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M 302 248 Q 275 291 302 334" fill="none" stroke="#e11d2f" stroke-width="4.5" stroke-linecap="round"/>
+      <text class="abbr" x="343" y="316">ソフトバンク</text>
+      <!-- Score slot: fixed region x 780-970 flush to bar right edge, digits centered -->
+      <line x1="780" y1="226" x2="780" y2="356" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
+      <text class="score" x="875" y="345" text-anchor="middle" filter="url(#glowW)">1</text>
 
       <!-- Home team bar -->
-      <rect x="162" y="382" width="774" height="158" rx="13" fill="url(#homeBar)"/>
-      <rect x="162" y="382" width="774" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
+      <rect x="162" y="382" width="808" height="158" rx="13" fill="url(#homeBar)"/>
+      <rect x="162" y="382" width="808" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
       <rect x="174" y="414" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
       <rect x="174" y="466" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
-      <circle cx="246" cy="461" r="43" fill="#f6f7f9" stroke="#c8ced8" stroke-width="2"/>
-      <path d="M 220 432 Q 238 461 220 490" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
-      <path d="M 272 432 Q 254 461 272 490" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
-      <text class="abbr" x="302" y="486">ファイターズ</text>
-      <line x1="746" y1="396" x2="746" y2="526" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
-      <text class="score" x="841" y="515" text-anchor="middle" filter="url(#glowW)">0</text>
+      <circle cx="263" cy="461" r="64" fill="#f6f7f9"/>
+      <path d="M 224 418 Q 251 461 224 504" fill="none" stroke="#e11d2f" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M 302 418 Q 275 461 302 504" fill="none" stroke="#e11d2f" stroke-width="4.5" stroke-linecap="round"/>
+      <text class="abbr" x="343" y="486">ファイターズ</text>
+      <line x1="780" y1="396" x2="780" y2="526" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
+      <text class="score" x="875" y="515" text-anchor="middle" filter="url(#glowW)">0</text>
 
-      <line x1="946" y1="214" x2="946" y2="540" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
+      <line x1="980" y1="214" x2="980" y2="540" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
 
       <!-- ===== STATUS PANEL ===== -->
       <!-- Bases: 2nd top, 1st right (occupied), 3rd left -->
-      <polygon points="1046,220 1076,250 1046,280 1016,250" fill="#141b26" stroke="#47546c" stroke-width="3"/>
-      <polygon points="1090,264 1120,294 1090,324 1060,294" fill="url(#baseOn)" stroke="#ff707b" stroke-width="2" filter="url(#glowR)"/>
-      <polygon points="1002,264 1032,294 1002,324 972,294" fill="#141b26" stroke="#47546c" stroke-width="3"/>
+      <polygon points="1084,220 1114,250 1084,280 1054,250" fill="#141b26" stroke="#47546c" stroke-width="3"/>
+      <polygon points="1128,264 1158,294 1128,324 1098,294" fill="url(#baseOn)" stroke="#ff707b" stroke-width="2" filter="url(#glowR)"/>
+      <polygon points="1040,264 1070,294 1040,324 1010,294" fill="#141b26" stroke="#47546c" stroke-width="3"/>
 
       <!-- Count -->
-      <text class="count" x="1046" y="425" text-anchor="middle">3-2</text>
+      <text class="count" x="1084" y="425" text-anchor="middle">3-2</text>
 
       <!-- Outs (LED dots, no label) -->
-      <circle cx="996" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
-      <circle cx="1046" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
-      <circle cx="1096" cy="492" r="20" fill="#141b26" stroke="#47546c" stroke-width="3.5"/>
+      <circle cx="1034" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
+      <circle cx="1084" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
+      <circle cx="1134" cy="492" r="20" fill="#141b26" stroke="#47546c" stroke-width="3.5"/>
     </svg>
   </div>
 
