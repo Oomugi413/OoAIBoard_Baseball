@@ -140,7 +140,7 @@ baseball-scoreboard/
 
 1. [済] プロジェクト雛形を作る。
 2. [済] スコアボード表示だけを先に作る。
-3. [済] ダミーデータでデザインを整える。（現状は基本CSS版。`scoreboard_design.md` 3.2 の Broadcast LED デザインへの置き換えはこれから）
+3. [済] ダミーデータでデザインを整える。（`scoreboard_design.md` 3.2 の Broadcast LED デザインへ置き換え済み。インラインSVGで描画し、`tests/design_fable/measure.mjs` と実アプリ表示確認を実施）
 4. [済] スコア状態の型と操作ルールを作る。
 5. [済] スコア入力画面を作る。
 6. [済] 閲覧画面と操作画面をリアルタイム連携する。（SSEで実装）

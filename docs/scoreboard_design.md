@@ -255,7 +255,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - [tests/design_fable/measure.mjs](../tests/design_fable/measure.mjs) — 文字の描画範囲を計測し、仕切り線や数字との重なりを検証するスクリプト
 - [tests/design_fable/README.md](../tests/design_fable/README.md) — 前提条件と使い方
 
-デザインを修正する場合は `mockup.html` を編集し、`measure.mjs` で重なりがないことを確認してから `render.mjs` で画像を書き出す。
+ `mockup.html` を編集し、`measure.mjs` で重なりがないことを確認してから `render.mjs` で画像を書き出し、デザインを修正した。モックアップ生成ファイルは、以降参照のみ行い、実際の修正は'rules.md'のFile Structure に記載されたファイルに行うこと。
 
 ### 3.3 レンダリング技術
 
