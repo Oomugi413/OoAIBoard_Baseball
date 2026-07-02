@@ -169,7 +169,7 @@ baseball-scoreboard/
 
 1. [済] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更し、旧クライアントを `/legacy` で併存配信する。Home Pageだけ移植して起動確認する。（React 19 / MUI 9 / Vite 8 を導入。旧クライアントは `src/client_legacy/` へ移動。単体テスト、ビルド、新Home・旧画面・API・ロゴ配信の動作確認済み）
 2. [済] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。（`api/client.js`・`api/useServerState.js`・`ConfirmDialog`・`TopBar`・`LegacyRedirect` を追加し、react-router-dom を導入。未移行ルートは `/legacy` へ自動リダイレクト。Homeにボード数のライブ表示を付け、リロードなしのSSE反映・リダイレクト・不明ルートのHome復帰をヘッドレスブラウザで確認済み）
-3. [未] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。
+3. [済] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。（`components/scoreboard/ScoreboardView.jsx` を追加。座標・配色・グラデーション・フィルターを1:1移植し、`svgId` でボードごとにgradient/filter idを分離。CSSは `styles/scoreboard.css` に切り出し。検証用に一時ページ `/preview`（`ScoreboardPreviewPage.jsx`）を追加し、旧クライアント `/legacy` と並べてスクリーンショット比較、得点・ランナー・カウント・アウト・ABS・一時演出オーバーレイの一致を確認済み。`/preview` は手順4以降の実ページで置き換わるまでの暫定検証用）
 4. [未] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。
 5. [未] Score Input Page の操作ボタン群を移植する。操作ミスを防ぐグループ分けを保つ。
 6. [未] 編集メニューを MUI Drawer のオーバーレイとして再実装する。閉じるボタンを付け、パソコンでは操作ボタンの上に重ねて表示する。フォームを状態管理に載せ替え、「プリセット保存で既存設定がリセットされる」不具合をここで根治する。あわせて、チーム略称テキストの拡大率設定を編集メニューに追加する。
@@ -187,7 +187,7 @@ baseball-scoreboard/
 
 - Fable 5を親エージェント(main)として進める。
 - 方針決定、タスク分解、曖昧な判断、最終レビューはmainで行う。
-- 実装・テスト追加・機械的修正は codex-gpt55-implementer サブエージェントに委譲する。サブエージェントは Codex MCP を使い、model は gpt-5.5、sandbox は workspace-write にする。
+- 実装・テスト追加・機械的修正は sonnet5-implementer サブエージェントに委譲する。
 - サブエージェントの報告は、変更ファイル、判断、テスト結果、未解決事項だけに要約する。
 - 起動は簡単なコマンド（`npm install` と `npm start`）で完結する状態を保つ。`npm start` はViteビルドとサーバー起動を内包してよい。
 - ビルド工程やライブラリの追加は、スコアボードの表示・演出の質を高めるために必要な範囲で許容する。ただしWindows/Linux両対応と起動の簡単さを崩さない。追加時は理由を本ファイルに残す。

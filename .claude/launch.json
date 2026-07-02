@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "baseball-scoreboard",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/server/index.mjs"],
+      "port": 52582
+    }
+  ]
+}
