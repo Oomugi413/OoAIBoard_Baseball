@@ -262,7 +262,7 @@ ABSカウント -1 / +1:
 - 初期設定では、24時間アプリにアクセスがない場合、すべての稼働中スコアボードを削除する。
 - 自動削除の有効/無効と時間は、全体の設定メニューで変更できるようにする。
 - 自動削除しても、チームプリセット、共通設定、閲覧画面設定は残す。
-- アプリへのアクセスは、Viewer Page、Control List Page、Score Input Page、Settings Pageの表示、またはSocket.IO接続で更新する。
+- アプリへのアクセスは、Viewer Page、Control List Page、Score Input Page、Settings Pageの表示、またはSSE（リアルタイム）接続で更新する。
 - 24時間アクセスなしの自動削除では、削除確認を表示しない。
 
 ## 13. Overlay Timing

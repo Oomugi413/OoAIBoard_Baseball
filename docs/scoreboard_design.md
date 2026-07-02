@@ -33,28 +33,48 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 追加で別のポート番号が必要な場合は、`52583`, `52584` のように続きの番号を使う。
 - PC側のポート開放やファイアウォール設定は、このアプリでは自動変更しない。
 
-## 2. Recommended Tech Stack
+## 2. Adopted Tech Stack
 
-実装時の候補は以下。
+技術選定は次の優先順位で決める。
 
-- Frontend: React + TypeScript + Vite
-- Backend: Node.js + Express
-- Realtime: Socket.IO
-- Storage: SQLite
-- Scoreboard rendering: インラインSVG（ベクター描画）でスコアボード本体を描く
-- Styling: CSS（カスタムプロパティ、グラデーション、フィルター）＋ CSS Modules
-- Fonts: 自己ホストのWebフォント（名前用のコンデンスド・ゴシック＋得点/カウント用の等幅数字）
-- Logo storage: ローカルのアップロード用フォルダに保存
+1. 非プログラマが `npm start` だけで起動できること（前提要件は Node.js と npm のみ）。
+2. Windows / Linux の両対応を崩さないこと。
+3. LAN内・数ボード・数端末という規模に対して過剰にしないこと。
+
+これらを満たすため、追加依存とビルド工程を最小化した構成を採用する。
+
+採用構成:
+
+- 実行環境: Node.js（LTS）。npm 同梱。
+- サーバー: Node標準の `node:http`。追加のWebフレームワークは使わない。
+- 静的配信: `node:http` から `src/client/` を直接配信する。
+- リアルタイム反映: SSE（Server-Sent Events / ブラウザ標準の `EventSource`）。
+- フロントエンド: 素のJavaScript（ESモジュール）。ビルド工程を持たず、`<script type="module">` でそのまま読み込む。
+- 型の安全性: TypeScriptの代わりに JSDoc 型注釈 ＋ `// @ts-check`（`jsconfig.json`）で、ビルドなしのままエディタ上の型チェックを得る。
+- 保存: 単一のJSONファイル（`storage/data/app.json`）。書き込みは一時ファイル→リネームのアトミック書き込みで壊れないようにする。
+- スコアボード描画: インラインSVG（ベクター描画）。詳細は 4.3。
+- スタイル: CSS（カスタムプロパティ、グラデーション、フィルター）。
+- フォント: 自己ホストのWebフォント（名前用のコンデンスド・ゴシック＋得点/カウント用の等幅数字）。CDNは使わず同梱する。
+- ロゴ画像変換: jimp（純JavaScript製の画像ライブラリ）。256x256変換・透過保持・圧縮に使う。これが唯一の実行時npm依存。
+- ロゴ保存: ローカルのアップロード用フォルダ（`storage/uploads/team-logos/`）に保存。
 
 理由:
 
-- ブラウザ表示と操作画面を分けやすい。
-- Socket.IOにより、操作画面の変更を閲覧画面へ即時反映しやすい。
-- SQLiteにより、プリセットや設定をアプリ終了後も保存しやすい。
-- TypeScriptにより、スコア状態や操作履歴の扱いを安全にしやすい。
-- Node.js系の構成により、将来的なWindows/Linux両対応を進めやすい。
-- スコアボードをSVGで描くと解像度に依存せず、配信解像度や端末ごとの拡大縮小でも文字と図形を鮮明に保てる。
-- SVGのグラデーションやフィルター（グロー、ベベル、影）により、基本CSSだけでは出しにくい放送品質の見た目を、無透過背景のまま実現できる。
+- `node:http` と SSE だけで、operation_rules.md の「操作をサーバーへ送る → サーバーが状態更新 → 閲覧画面へ通知」という一方向のリアルタイム反映を満たせる。双方向通信は不要。
+- SSE はブラウザ標準で切断時の自動再接続を備え、追加ライブラリなしにスマホを含む対象ブラウザで動く。
+- データ量はボード数個＋プリセット＋設定でキロバイト級のため、JSONファイルで十分。アトミック書き込みでアプリ終了後も安全に保存できる。
+- ビルド工程と追加依存を持たないことで、非プログラマが `npm start` だけで起動でき、Windows/Linux両対応も崩れにくい。
+- JSDoc ＋ `@ts-check` で、TypeScript相当の型チェックをビルドなしで得られ、スコア状態や操作履歴を安全に扱える。
+- スコアボードをSVGで描くと解像度に依存せず、配信解像度や端末ごとの拡大縮小でも文字と図形を鮮明に保てる（4.3 参照）。
+- jimp は純JavaScript製でネイティブビルドが不要なため、Windows/Linuxのどちらでもインストールに失敗しにくい。
+
+見送った候補と理由（`12. Coding Rules` の方針に基づき記録する）:
+
+- React + TypeScript + Vite: ビルド工程と多数の依存が増え、`npm start` だけで動く手軽さが失われる。画面は5ページで、状態更新のたびに再描画する現行方式で足りる。型はJSDoc＋`@ts-check`で代替する。
+- Express: ルーティングと静的配信は `node:http` で足り、依存を1つ減らせる。
+- Socket.IO: 双方向通信もルーム管理も不要。SSEで要件を満たせ、依存を減らせる。
+- SQLite（better-sqlite3 等）: ネイティブモジュールで環境によりインストールに失敗する恐れがあり、非プログラマ運用の最大リスク。データ規模的にもJSONで足りる。将来データが増えた場合は、追加インストール不要でNodeに内蔵された `node:sqlite` へ移行できる余地を残す。
+- sharp（画像変換）: 高速だがネイティブバイナリ依存。256x256のロゴ変換では速度差は体感できないため、純JS製の jimp を優先する。
 
 ## 3. Page Structure
 
@@ -289,7 +309,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 質感表現: SVGのグラデーション、フィルター（グロー、ベベル、影）で、基本CSSでは出しにくい放送品質の見た目を作れる。
 - 図形の精密表現: ベースのひし形、イニングの三角、LED風ドットなどを正確に描ける。
 - 無透過背景の担保: 一番下に不透明の矩形を敷くだけで背景を確実に無透過にでき、グリーンバック運用と両立する。
-- 依存の少なさ: SVGはブラウザ標準で追加ライブラリが不要。既存の構成（React または現行のプレーンJS）にそのまま組み込める。
+- 依存の少なさ: SVGはブラウザ標準で追加ライブラリが不要。採用した素のJavaScript（ESモジュール）にそのまま組み込める。
 - データ駆動: スコアやカウント等の状態を、SVGの属性・テキストへ直接バインドできる。
 
 検討したが採用しなかった案:
@@ -304,7 +324,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 日本語表示部分は Noto Sans JP 系を併用する。
 - ライセンス上再配布可能なフォントを自己ホストし、OSに依存せず同じ見た目になるようにする。
 
-この方針は `2. Recommended Tech Stack` の Scoreboard rendering / Styling / Fonts と対応する。
+この方針は `2. Adopted Tech Stack` の スコアボード描画 / スタイル / フォント と対応する。
 
 ## 5. Main Data Model
 
@@ -428,8 +448,8 @@ Viewer Pageで開く表示プロパティ用のパネル。
 
 ## 8. Needed File Structure
 
-実装時に作る想定のファイル構成。
-現時点ではまだ作成しない。
+実装が進むにつれて作る想定のファイル構成。
+初期実装ではファイルをまとめてよく、機能追加に合わせて分割する（ビルド工程は持たない）。
 
 ```text
 baseball-scoreboard/
@@ -439,95 +459,55 @@ baseball-scoreboard/
     operation_rules.md
     button_list.md
     user_guide.txt
-  package.json
-  tsconfig.json
-  vite.config.ts
+    design_plan.jpg           # レイアウト参考画像
+    design_claude_fable.jpg   # 採用デザイン案の画像
+  package.json                # "type": "module"、scripts(start/test)、依存はjimpのみ
+  jsconfig.json               # @ts-check によるエディタ型チェック（ビルドはしない）
+  .gitignore
   src/
-    client/
-      main.tsx
-      App.tsx
-      routes/
-        HomePage.tsx
-        ViewerPage.tsx
-        ControlListPage.tsx
-        ScoreInputPage.tsx
-        SettingsPage.tsx
-      components/
+    client/                   # ブラウザ用。ビルドせずESモジュールとしてそのまま配信
+      index.html
+      app.js                  # エントリ。ルーティング、状態同期(SSE)、再描画の起点
+      lib/
+        api.js                # fetchラッパと EventSource(SSE) クライアント
+        router.js             # ハッシュルーティング
+        viewerSettings.js     # 端末ごとの表示プロパティ(localStorage)と入出力
         scoreboard/
-          ScoreboardView.tsx
-          InningPanel.tsx
-          TeamRow.tsx
-          RunnerPanel.tsx
-          CountPanel.tsx
-          PlayerMatchupPanel.tsx
-          AbsIndicator.tsx
-          OverlayMessage.tsx
-        controls/
-          PitchControls.tsx
-          PlateAppearanceControls.tsx
-          OutControls.tsx
-          RunnerControls.tsx
-          ScoreControls.tsx
-          BoardManagementControls.tsx
-          HistoryControls.tsx
-          InningControls.tsx
+          scoreboardView.js   # インラインSVGのスコアボード描画（表示専用）
+          overlay.js          # HOME RUN / K などの一時演出オーバーレイ
+        pages/
+          homePage.js
+          viewerPage.js
+          controlListPage.js
+          scoreInputPage.js
+          settingsPage.js
         menus/
-          EditMenu.tsx
-          PlayerMenu.tsx
-        settings/
-          TeamPresetEditor.tsx
-          GeneralSettingsEditor.tsx
-          ViewerPropertyPanel.tsx
-          ColorInput.tsx
-          LogoUploader.tsx
-      api/
-        boardApi.ts
-        presetApi.ts
-        socketClient.ts
-      state/
-        scoreboardReducer.ts
-        operationHistory.ts
+          editMenu.js
+          playerMenu.js
       styles/
-        global.css
-        scoreboard.css
-    server/
-      index.ts
-      routes/
-        boardRoutes.ts
-        presetRoutes.ts
-        settingsRoutes.ts
-      realtime/
-        socketServer.ts
-      services/
-        boardService.ts
-        presetService.ts
-        settingsService.ts
-        cleanupService.ts
-        imageService.ts
-      db/
-        database.ts
-        schema.sql
-        migrations/
-    shared/
-      types/
-        scoreboard.ts
-        team.ts
-        player.ts
-        settings.ts
-        viewer.ts
-      operations/
-        scoreboardActions.ts
-        scoringRules.ts
-  storage/
+        app.css               # 全体スタイル（規模に応じ scoreboard.css 等へ分割可）
+      fonts/                  # 自己ホストのWebフォント（同梱）
+    server/                   # ローカルサーバー（node:http）
+      index.mjs               # サーバ起動、静的配信、APIルーティング、SSE
+      lib/
+        store.js              # app.json の読み書き（アトミック書き込み）
+        api.js                # REST処理（boards / presets / settings / logo upload）
+        sse.js                # SSEクライアント管理と broadcast
+        cleanup.js            # 24時間アクセスなしの自動削除
+        imageService.js       # jimpによる256x256変換・形式チェック・透過保持・圧縮
+    shared/                   # クライアント/サーバー双方で使う定義とルール
+      scoringRules.mjs        # 試合状態と applyAction（サーバーが利用、単体テスト対象）
+      types.js                # JSDoc typedef（@ts-check で共有する型の形）
+  storage/                    # 実行時に生成。Git管理対象外
     data/
-      app.db
+      app.json                # boards + presets + settings
     uploads/
-      team-logos/
+      team-logos/             # 変換後の256x256ロゴ
   tests/
-    scoringRules.test.ts
-    scoreboardReducer.test.ts
-    cleanupService.test.ts
-    imageService.test.ts
+    scoringRules.test.mjs     # node:test
+    imageService.test.mjs
+    store.test.mjs
+    design_fable/             # スコアボードのデザインモックアップと生成スクリプト
 ```
 
 ### File Responsibilities
@@ -539,51 +519,41 @@ baseball-scoreboard/
 - `operation_rules.md` は、ボタン操作、状態変化、リアルタイム反映、自動削除のルールを置く。
 - `button_list.md` は、画面ごとに必要なボタンと操作項目の一覧を置く。
 - `user_guide.txt` は、コーディングに詳しくない人向けの起動、終了、基本操作の説明を置く。
+- `design_plan.jpg` はレイアウトの参考画像、`design_claude_fable.jpg` は採用デザイン案の画像。
 
-`src/client/routes/`
+`src/client/`
 
-- 各ページ単位の画面を置く。
-- URLごとの表示内容を分ける。
-
-`src/client/components/scoreboard/`
-
-- 配信や閲覧で見えるスコアボード本体を置く。
-- 操作ボタンは置かず、表示専用にする。
-
-`src/client/components/controls/`
-
-- スコア入力画面の操作ボタン群を置く。
-
-`src/client/components/menus/`
-
-- 編集メニューと選手名メニューを置く。
-
-`src/client/api/`
-
-- サーバーとの通信処理を置く。
-
-`src/client/state/`
-
-- 操作による状態変更、戻る、進むの処理を置く。
+- ブラウザで動く画面一式。ビルドせず、ESモジュールとしてそのまま配信する。
+- `app.js` をエントリに、`lib/pages/` へ各ページ、`lib/menus/` へ編集・選手名メニューを置く。
+- `lib/scoreboard/` に表示専用のスコアボード描画（インラインSVG）を置く。操作ボタンは含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
+- `lib/api.js` にサーバー通信（fetchとSSE受信）をまとめる。
+- `lib/viewerSettings.js` に端末ごとの表示プロパティ（localStorage保存と入出力）を置く。
+- 操作による状態変更・戻る・進むはサーバー側の `shared/scoringRules.mjs` が正で、クライアントは操作を送って結果を再描画する。
 
 `src/server/`
 
 - ローカルサーバー、保存処理、リアルタイム通信を置く。
-- `cleanupService.ts` は、24時間アクセスなしの自動削除を扱う。
-- `imageService.ts` は、ロゴ画像の256x256変換、形式チェック、圧縮を扱う。変換後も透過（アルファチャンネル）を保持できる形式（PNGなど）で保存し、スコアボード上で枠なしのままきれいに表示できるようにする。
+- `index.mjs` は `node:http` でサーバーを起動し、静的ファイル配信・APIルーティング・SSEをまとめる。
+- `lib/store.js` は `app.json` の読み書きを、一時ファイル→リネームのアトミック書き込みで安全に行う。
+- `lib/sse.js` は接続中クライアントの管理と状態の broadcast を行う。
+- `lib/cleanup.js` は、24時間アクセスなしの自動削除を扱う。
+- `lib/imageService.js` は、jimpでロゴ画像の256x256変換、形式チェック（PNG/JPEG）、圧縮を扱う。透過（アルファチャンネル）を保持できる形式で保存し、スコアボード上で枠なしのままきれいに表示できるようにする。
 
 `src/shared/`
 
-- クライアントとサーバーの両方で使う型やルールを置く。
+- クライアントとサーバーの両方で使う定義やルールを置く。
+- `scoringRules.mjs` は試合状態と操作（applyAction）を持ち、サーバーが利用し、単体テストの対象にする。
+- `types.js` はJSDocのtypedefで、`@ts-check` で共有する型の形を定義する。
 
 `storage/`
 
-- 実行時に生成されるデータベースやロゴ画像を置く。
-- Git管理対象から外す想定。
+- 実行時に生成されるJSONデータ（`app.json`）とロゴ画像を置く。
+- Git管理対象から外す。
 
 ## 9. Realtime Sync Design
 
 リアルタイム反映の詳細は `operation_rules.md` の `Realtime Sync` に記載する。
+反映はSSE（Server-Sent Events）で、サーバーから閲覧画面・操作画面へ配信する。
 親設計書では、操作画面の変更をサーバー経由で閲覧画面へ反映する方針だけを管理する。
 
 ## 10. Persistence Rules
@@ -626,6 +596,10 @@ baseball-scoreboard/
 - `11. Implementation Order` の手順は一つずつ実行し、各手順後のテストに成功したらGitに内容を保存する。
 - OS依存のパス区切りやシェル固有の書き方をコードに直接埋め込まない。
 - Windows/Linux両対応を崩す依存を追加する場合は、代替案や導入理由を設計書に残す。
+- ビルド工程を持たず、`npm start` だけで起動できる状態を保つ。
+- 実行時の追加npm依存は最小限にする。新たに追加する場合は、純JavaScript製で環境依存が少ないものを優先し、理由を設計書に残す（例: 画像変換の jimp）。
+- 型はTypeScriptを導入せず、JSDoc注釈＋`// @ts-check` で確認する。
+- `app.json` への書き込みは、一時ファイルに書いてからリネームするアトミック書き込みにし、書き込み途中のクラッシュで壊れないようにする。
 
 ## 13. Confirmed Decisions
 

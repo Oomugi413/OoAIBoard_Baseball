@@ -207,7 +207,7 @@
 - ただし、24時間アプリにアクセスがない場合、すべての稼働中スコアボードを削除する。
 - この24時間の値と有効/無効は、全体の設定メニューで管理できるようにする。
 - チームプリセット、共通設定、閲覧画面設定は自動削除の対象外にする。
-- アプリへのアクセスは、Viewer Page、Control List Page、Score Input Page、Settings Pageの表示、またはSocket.IO接続で更新する。
+- アプリへのアクセスは、Viewer Page、Control List Page、Score Input Page、Settings Pageの表示、またはSSE（リアルタイム）接続で更新する。
 
 一時演出:
 
