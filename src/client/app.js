@@ -224,12 +224,16 @@ function renderSettings() {
       </section>
       <section class="settings-panel">
         <h2>チームプリセット</h2>
-        <p>プリセット作成、編集、削除は次の実装段階で詳細化します。</p>
+        <button class="primary" id="create-preset">プリセット作成</button>
+        <div class="preset-list">
+          ${state.presets?.length ? state.presets.map(presetCardHtml).join("") : emptyState("チームプリセットがありません。")}
+        </div>
       </section>
     </main>
   `;
   bindNavigation();
   document.querySelector("#save-settings")?.addEventListener("click", saveSettings);
+  bindSettingsPresets();
 }
 
 function topBar(title) {
@@ -471,6 +475,8 @@ function teamEditHtml(side, team) {
   return `
     <fieldset>
       <legend>${label}</legend>
+      <input type="hidden" id="${side}-linked-preset" value="${escapeHtml(team.linkedPresetId || "")}">
+      <label>チーム名 <input id="${side}-team-name" value="${escapeHtml(team.name || "")}"></label>
       <label>略称 <input id="${side}-abbr" value="${escapeHtml(team.abbreviation)}"></label>
       <label>チーム色 <input type="color" id="${side}-color" value="${escapeHtml(team.teamColor)}"></label>
       <label>文字色 <input type="color" id="${side}-text" value="${escapeHtml(team.textColor)}"></label>
@@ -481,12 +487,44 @@ function teamEditHtml(side, team) {
         <button type="button" class="small" data-clear-logo="${side}">ロゴ削除</button>
       </div>
       <div class="logo-preview" id="${side}-logo-preview">${logoPreviewHtml(team.logoPath)}</div>
+      <div class="preset-control-row">
+        <select id="${side}-preset-select">
+          <option value="">プリセットを選択</option>
+          ${presetOptionsHtml(team.linkedPresetId)}
+        </select>
+        <button type="button" class="small" data-load-preset="${side}">読込</button>
+        <button type="button" class="small" data-save-team-preset="${side}">保存</button>
+      </div>
     </fieldset>
   `;
 }
 
 function logoPreviewHtml(logoPath) {
   return logoPath ? `<img src="${escapeHtml(logoPath)}" alt="">` : "";
+}
+
+function presetOptionsHtml(selectedId = "") {
+  return (state.presets || []).map((preset) => `
+    <option value="${escapeHtml(preset.id)}" ${preset.id === selectedId ? "selected" : ""}>${escapeHtml(preset.presetName || preset.name)}</option>
+  `).join("");
+}
+
+function presetCardHtml(preset) {
+  return `
+    <fieldset class="preset-card" data-preset-id="${escapeHtml(preset.id)}">
+      <legend>${escapeHtml(preset.presetName || "Team Preset")}</legend>
+      <label>プリセット名 <input data-preset-field="presetName" value="${escapeHtml(preset.presetName || "")}"></label>
+      <label>チーム名 <input data-preset-field="name" value="${escapeHtml(preset.name || "")}"></label>
+      <label>略称 <input data-preset-field="abbreviation" value="${escapeHtml(preset.abbreviation || "")}"></label>
+      <label>ロゴパス <input data-preset-field="logoPath" value="${escapeHtml(preset.logoPath || "")}"></label>
+      <label>チーム色 <input type="color" data-preset-field="teamColor" value="${escapeHtml(preset.teamColor || "#1f5fbf")}"></label>
+      <label>文字色 <input type="color" data-preset-field="textColor" value="${escapeHtml(preset.textColor || "#ffffff")}"></label>
+      <div class="preset-actions">
+        <button type="button" class="primary" data-save-preset="${escapeHtml(preset.id)}">保存</button>
+        <button type="button" class="danger" data-delete-preset="${escapeHtml(preset.id)}">削除</button>
+      </div>
+    </fieldset>
+  `;
 }
 
 function playerMenuHtml(board) {
@@ -703,17 +741,13 @@ function resizeTransformFromPointer(handle, start, startVisualWidth, startRight,
 
 function bindEditMenu(board) {
   bindLogoInputs();
+  bindTeamPresetControls();
   document.querySelector("#save-edit-menu")?.addEventListener("click", async () => {
     const boardName = document.querySelector("#edit-board-name").value;
     const teamUpdates = {};
     for (const side of ["away", "home"]) {
       const logoPath = await resolveLogoPathForSave(side);
-      teamUpdates[side] = {
-        abbreviation: document.querySelector(`#${side}-abbr`).value,
-        teamColor: document.querySelector(`#${side}-color`).value,
-        textColor: document.querySelector(`#${side}-text`).value,
-        logoPath
-      };
+      teamUpdates[side] = readTeamFormValues(side, logoPath);
     }
     const displayOptions = {
       showAbs: document.querySelector("#show-abs").checked,
@@ -726,6 +760,61 @@ function bindEditMenu(board) {
     }
     await action(board.id, "display:update", displayOptions);
   });
+}
+
+function bindTeamPresetControls() {
+  document.querySelectorAll("[data-load-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const side = button.dataset.loadPreset;
+      const presetId = document.querySelector(`#${side}-preset-select`)?.value;
+      const preset = (state.presets || []).find((item) => item.id === presetId);
+      if (!preset) return;
+      applyPresetToTeamForm(side, preset);
+    });
+  });
+  document.querySelectorAll("[data-save-team-preset]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const side = button.dataset.saveTeamPreset;
+      const logoPath = await resolveLogoPathForSave(side);
+      const team = readTeamFormValues(side, logoPath);
+      const preset = await api("/api/presets", {
+        method: "POST",
+        body: JSON.stringify({
+          presetName: team.name || team.abbreviation || "Team Preset",
+          ...team
+        })
+      });
+      document.querySelector(`#${side}-linked-preset`).value = preset.id;
+      await refreshState();
+      render();
+    });
+  });
+}
+
+function readTeamFormValues(side, logoPath) {
+  return {
+    name: document.querySelector(`#${side}-team-name`).value,
+    abbreviation: document.querySelector(`#${side}-abbr`).value,
+    teamColor: document.querySelector(`#${side}-color`).value,
+    textColor: document.querySelector(`#${side}-text`).value,
+    logoPath,
+    linkedPresetId: document.querySelector(`#${side}-linked-preset`).value || null
+  };
+}
+
+function applyPresetToTeamForm(side, preset) {
+  document.querySelector(`#${side}-linked-preset`).value = preset.id;
+  document.querySelector(`#${side}-team-name`).value = preset.name || "";
+  document.querySelector(`#${side}-abbr`).value = preset.abbreviation || "";
+  document.querySelector(`#${side}-color`).value = preset.teamColor || "#1f5fbf";
+  document.querySelector(`#${side}-text`).value = preset.textColor || "#ffffff";
+  const logoInput = document.querySelector(`#${side}-logo`);
+  const fileInput = document.querySelector(`#${side}-logo-file`);
+  logoInput.value = preset.logoPath || "";
+  delete logoInput.dataset.pendingLogo;
+  if (fileInput) fileInput.value = "";
+  document.querySelector(`#${side}-logo-status`).textContent = preset.logoPath ? "設定済み" : "未設定";
+  document.querySelector(`#${side}-logo-preview`).innerHTML = logoPreviewHtml(preset.logoPath);
 }
 
 function bindLogoInputs() {
@@ -914,6 +1003,64 @@ async function saveSettings() {
   });
   state.settings = settings;
   render();
+}
+
+function bindSettingsPresets() {
+  document.querySelector("#create-preset")?.addEventListener("click", createPreset);
+  document.querySelectorAll("[data-save-preset]").forEach((button) => {
+    button.addEventListener("click", () => savePreset(button.dataset.savePreset));
+  });
+  document.querySelectorAll("[data-delete-preset]").forEach((button) => {
+    button.addEventListener("click", () => deletePreset(button.dataset.deletePreset));
+  });
+}
+
+async function createPreset() {
+  await api("/api/presets", {
+    method: "POST",
+    body: JSON.stringify({
+      presetName: `Team Preset ${(state.presets || []).length + 1}`,
+      name: "Team",
+      abbreviation: "Team",
+      logoPath: "",
+      teamColor: "#1f5fbf",
+      textColor: "#ffffff"
+    })
+  });
+  await refreshState();
+  render();
+}
+
+async function savePreset(presetId) {
+  const card = findPresetCard(presetId);
+  if (!card) return;
+  await api(`/api/presets/${encodeURIComponent(presetId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(readPresetCardValues(card))
+  });
+  await refreshState();
+  render();
+}
+
+async function deletePreset(presetId) {
+  const preset = (state.presets || []).find((item) => item.id === presetId);
+  if (!confirm(`「${preset?.presetName || "チームプリセット"}」を削除しますか？`)) return;
+  await api(`/api/presets/${encodeURIComponent(presetId)}`, { method: "DELETE" });
+  await refreshState();
+  render();
+}
+
+function readPresetCardValues(card) {
+  const values = {};
+  card.querySelectorAll("[data-preset-field]").forEach((input) => {
+    values[input.dataset.presetField] = input.value;
+  });
+  return values;
+}
+
+function findPresetCard(presetId) {
+  return Array.from(document.querySelectorAll("[data-preset-id]"))
+    .find((card) => card.dataset.presetId === presetId);
 }
 
 async function api(path, options = {}) {

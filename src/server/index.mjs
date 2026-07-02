@@ -113,6 +113,45 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/presets") {
+    sendJson(res, 200, state.presets);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/presets") {
+    const body = await readJsonBody(req);
+    const preset = createTeamPreset(body);
+    state.presets.push(preset);
+    broadcast("preset changed", { preset });
+    sendJson(res, 201, preset);
+    return;
+  }
+
+  const presetMatch = url.pathname.match(/^\/api\/presets\/([^/]+)$/);
+  if (presetMatch) {
+    const presetId = decodeURIComponent(presetMatch[1]);
+    const presetIndex = state.presets.findIndex((preset) => preset.id === presetId);
+    if (presetIndex === -1) {
+      sendJson(res, 404, { error: "チームプリセットが見つかりません。" });
+      return;
+    }
+
+    if (req.method === "PATCH") {
+      const body = await readJsonBody(req);
+      state.presets[presetIndex] = updateTeamPreset(state.presets[presetIndex], body);
+      broadcast("preset changed", { preset: state.presets[presetIndex] });
+      sendJson(res, 200, state.presets[presetIndex]);
+      return;
+    }
+
+    if (req.method === "DELETE") {
+      const [deleted] = state.presets.splice(presetIndex, 1);
+      broadcast("preset deleted", { presetId: deleted.id });
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/api/boards") {
     sendJson(res, 200, state.boards);
     return;
@@ -308,6 +347,39 @@ function publicState() {
     boards: state.boards,
     settings: state.settings,
     presets: state.presets
+  };
+}
+
+function createTeamPreset(values = {}) {
+  const now = new Date().toISOString();
+  return {
+    id: randomUUID(),
+    ...normalizeTeamPreset(values),
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function updateTeamPreset(current, values = {}) {
+  return {
+    ...current,
+    ...normalizeTeamPreset(values),
+    id: current.id,
+    createdAt: current.createdAt,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function normalizeTeamPreset(values = {}) {
+  const teamName = String(values.name || values.teamName || "").trim() || "Team";
+  const abbreviation = String(values.abbreviation || teamName).trim() || teamName;
+  return {
+    presetName: String(values.presetName || values.name || "Team Preset").trim() || "Team Preset",
+    name: teamName,
+    abbreviation,
+    logoPath: String(values.logoPath || "").trim(),
+    teamColor: String(values.teamColor || "#1f5fbf").trim(),
+    textColor: String(values.textColor || "#ffffff").trim()
   };
 }
 

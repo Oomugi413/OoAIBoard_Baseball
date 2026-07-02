@@ -319,6 +319,30 @@ fieldset {
   font-size: 17px;
 }
 
+.preset-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.preset-card {
+  display: grid;
+  gap: 8px;
+}
+
+.preset-actions,
+.preset-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.preset-control-row select {
+  min-width: 180px;
+  flex: 1;
+}
+
 .button-grid {
   display: flex;
   flex-wrap: wrap;
