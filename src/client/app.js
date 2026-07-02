@@ -11,6 +11,7 @@ let selectedViewerBoardId = null;
 let showEditMenu = false;
 let showPlayerMenu = false;
 let viewerSettings = loadViewerSettings();
+let presetReorderAbort = null;
 
 start();
 
@@ -40,10 +41,15 @@ function connectEvents() {
 
 function render() {
   const route = location.hash.replace(/^#/, "") || "/";
+  if (route !== "/settings/presets/reorder") {
+    presetReorderAbort?.abort();
+    presetReorderAbort = null;
+  }
   if (route === "/") renderHome();
   else if (route === "/viewer") renderViewer();
   else if (route === "/control") renderControlList();
   else if (route.startsWith("/control/")) renderScoreInput(route.split("/")[2]);
+  else if (route === "/settings/presets/reorder") renderPresetReorder();
   else if (route === "/settings") renderSettings();
   else renderHome();
 }
@@ -225,7 +231,10 @@ function renderSettings() {
       </section>
       <section class="settings-panel">
         <h2>チームプリセット</h2>
-        <button class="primary" id="create-preset">プリセット作成</button>
+        <div class="preset-actions">
+          <button class="primary" id="create-preset">プリセット作成</button>
+          <button data-nav="/settings/presets/reorder">プリセット並べ替え</button>
+        </div>
         <div class="preset-list">
           ${state.presets?.length ? state.presets.map(presetCardHtml).join("") : emptyState("チームプリセットがありません。")}
         </div>
@@ -236,6 +245,26 @@ function renderSettings() {
   document.querySelector("#save-settings")?.addEventListener("click", saveSettings);
   document.querySelector("#cleanup-unused-logos")?.addEventListener("click", cleanupUnusedLogos);
   bindSettingsPresets();
+}
+
+function renderPresetReorder() {
+  const presets = state.presets || [];
+  document.body.style.background = "#f4f6f8";
+  app.innerHTML = `
+    ${topBar("プリセット並べ替え")}
+    <main class="page narrow">
+      <section class="settings-panel">
+        <div class="preset-actions">
+          <button data-nav="/settings">設定に戻る</button>
+        </div>
+        <div class="preset-reorder-list" id="preset-reorder-list">
+          ${presets.length ? presets.map(presetReorderItemHtml).join("") : emptyState("チームプリセットがありません。")}
+        </div>
+      </section>
+    </main>
+  `;
+  bindNavigation();
+  bindPresetReorder();
 }
 
 function topBar(title) {
@@ -526,6 +555,18 @@ function presetCardHtml(preset) {
         <button type="button" class="danger" data-delete-preset="${escapeHtml(preset.id)}">削除</button>
       </div>
     </fieldset>
+  `;
+}
+
+function presetReorderItemHtml(preset) {
+  return `
+    <article class="preset-reorder-item" data-reorder-preset-id="${escapeHtml(preset.id)}">
+      <button class="preset-drag-handle" type="button" data-drag-preset="${escapeHtml(preset.id)}" aria-label="並べ替え">≡</button>
+      <div class="preset-reorder-main">
+        <strong>${escapeHtml(preset.presetName || "Team Preset")}</strong>
+        <span>${escapeHtml(preset.abbreviation || preset.name)} / ${escapeHtml(preset.name || "")}</span>
+      </div>
+    </article>
   `;
 }
 
@@ -1021,6 +1062,119 @@ function bindSettingsPresets() {
   document.querySelectorAll("[data-delete-preset]").forEach((button) => {
     button.addEventListener("click", () => deletePreset(button.dataset.deletePreset));
   });
+}
+
+function bindPresetReorder() {
+  const list = document.querySelector("#preset-reorder-list");
+  if (!list) return;
+  presetReorderAbort?.abort();
+  presetReorderAbort = new AbortController();
+  const listenerOptions = { signal: presetReorderAbort.signal };
+  let draggedItem = null;
+  let pointerId = null;
+  let activeHandle = null;
+
+  const startDrag = (handle, id) => {
+    draggedItem = handle.closest("[data-reorder-preset-id]");
+    if (!draggedItem) return false;
+    pointerId = id;
+    activeHandle = handle;
+    draggedItem.classList.add("dragging");
+    return true;
+  };
+
+  const moveDrag = (clientY) => {
+    if (!draggedItem) return;
+    const placement = presetReorderPlacementAt(list, clientY);
+    if (!placement || placement.target === draggedItem) return;
+    if (placement.before) {
+      list.insertBefore(draggedItem, placement.target);
+    } else {
+      list.insertBefore(draggedItem, placement.target.nextSibling);
+    }
+  };
+
+  const finishDrag = async () => {
+    if (!draggedItem) return;
+    try {
+      if (activeHandle?.hasPointerCapture(pointerId)) activeHandle.releasePointerCapture(pointerId);
+    } catch {
+      // Pointer capture may already be released by the browser.
+    }
+    const finishedItem = draggedItem;
+    draggedItem = null;
+    pointerId = null;
+    activeHandle = null;
+    finishedItem.classList.remove("dragging");
+    await savePresetOrderFromDom();
+  };
+
+  const isActiveDragPointer = (event) => {
+    return pointerId === "mouse"
+      ? event.pointerType === "mouse"
+      : event.pointerId === pointerId;
+  };
+
+  list.querySelectorAll("[data-drag-preset]").forEach((handle) => {
+    handle.addEventListener("pointerdown", (event) => {
+      const id = event.pointerType === "mouse" ? "mouse" : event.pointerId;
+      if (!startDrag(handle, id)) return;
+      if (pointerId !== "mouse") handle.setPointerCapture(pointerId);
+      event.preventDefault();
+    }, listenerOptions);
+
+    handle.addEventListener("mousedown", (event) => {
+      if (draggedItem) return;
+      if (!startDrag(handle, "mouse")) return;
+      event.preventDefault();
+    }, listenerOptions);
+  });
+
+  document.addEventListener("pointermove", (event) => {
+    if (!draggedItem || !isActiveDragPointer(event)) return;
+    moveDrag(event.clientY);
+  }, listenerOptions);
+
+  document.addEventListener("mousemove", (event) => {
+    if (pointerId !== "mouse") return;
+    moveDrag(event.clientY);
+  }, listenerOptions);
+
+  const finishPointerDrag = async (event) => {
+    if (!draggedItem || !isActiveDragPointer(event)) return;
+    await finishDrag();
+  };
+
+  document.addEventListener("pointerup", finishPointerDrag, listenerOptions);
+  document.addEventListener("pointercancel", finishPointerDrag, listenerOptions);
+  document.addEventListener("mouseup", async () => {
+    if (pointerId !== "mouse") return;
+    await finishDrag();
+  }, listenerOptions);
+}
+
+async function savePresetOrderFromDom() {
+  const presetIds = Array.from(document.querySelectorAll("#preset-reorder-list [data-reorder-preset-id]"))
+    .map((item) => item.dataset.reorderPresetId);
+  if (!presetIds.length) return;
+  state.presets = await api("/api/presets/order", {
+    method: "PATCH",
+    body: JSON.stringify({ presetIds })
+  });
+  render();
+}
+
+function presetReorderPlacementAt(list, clientY) {
+  const items = Array.from(list.querySelectorAll("[data-reorder-preset-id]"))
+    .filter((item) => !item.classList.contains("dragging"));
+  if (!items.length) return null;
+  for (const item of items) {
+    const rect = item.getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) {
+      return { target: item, before: true };
+    }
+  }
+  return { target: items[items.length - 1], before: false };
 }
 
 async function createPreset() {

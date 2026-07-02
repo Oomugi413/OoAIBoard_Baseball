@@ -133,6 +133,18 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "PATCH" && url.pathname === "/api/presets/order") {
+    const body = await readJsonBody(req);
+    const result = reorderTeamPresets(body.presetIds);
+    if (result.error) {
+      sendJson(res, 400, { error: result.error });
+      return;
+    }
+    broadcast("preset order changed", { presets: state.presets });
+    sendJson(res, 200, state.presets);
+    return;
+  }
+
   const presetMatch = url.pathname.match(/^\/api\/presets\/([^/]+)$/);
   if (presetMatch) {
     const presetId = decodeURIComponent(presetMatch[1]);
@@ -421,6 +433,28 @@ function updateTeamPreset(current, values = {}) {
     createdAt: current.createdAt,
     updatedAt: new Date().toISOString()
   };
+}
+
+function reorderTeamPresets(presetIds) {
+  if (!Array.isArray(presetIds)) return { error: "プリセット順が不正です。" };
+  const currentById = new Map(state.presets.map((preset) => [preset.id, preset]));
+  const seen = new Set();
+  const ordered = [];
+
+  for (const rawId of presetIds) {
+    const id = String(rawId);
+    const preset = currentById.get(id);
+    if (!preset || seen.has(id)) continue;
+    seen.add(id);
+    ordered.push(preset);
+  }
+
+  for (const preset of state.presets) {
+    if (!seen.has(preset.id)) ordered.push(preset);
+  }
+
+  state.presets = ordered;
+  return { presets: state.presets };
 }
 
 function normalizeTeamPreset(values = {}) {
