@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 1560px; height: 940px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 34px;
+    /* Chroma-key green background to demonstrate opaque-board / green-screen use */
+    background: #00b140;
+    font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Yu Gothic", sans-serif;
+  }
+  .stage {
+    width: 1360px;
+    filter: drop-shadow(0 26px 46px rgba(0,0,0,0.45));
+  }
+  .stage svg { width: 100%; height: auto; display: block; }
+  .caption {
+    color: #f4fff7; font-size: 26px; font-weight: 600; letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .caption b { font-weight: 700; }
+  .caption .dot { width: 8px; height: 8px; border-radius: 50%; background: #f4fff7; opacity: .7; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <svg viewBox="0 0 1160 560" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Materials -->
+        <linearGradient id="boardBg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#141b28"/>
+          <stop offset="0.55" stop-color="#0d131d"/>
+          <stop offset="1" stop-color="#070a11"/>
+        </linearGradient>
+        <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#525c70"/>
+          <stop offset="0.5" stop-color="#2b3240"/>
+          <stop offset="1" stop-color="#141922"/>
+        </linearGradient>
+        <linearGradient id="topBand" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1a2331"/>
+          <stop offset="1" stop-color="#111925"/>
+        </linearGradient>
+        <linearGradient id="awayBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f4394b"/>
+          <stop offset="0.5" stop-color="#d81c2c"/>
+          <stop offset="1" stop-color="#a30f1c"/>
+        </linearGradient>
+        <linearGradient id="homeBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#4a60f5"/>
+          <stop offset="0.5" stop-color="#2c43e6"/>
+          <stop offset="1" stop-color="#16249e"/>
+        </linearGradient>
+        <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#38bdf8" stop-opacity="0"/>
+          <stop offset="0.5" stop-color="#38bdf8" stop-opacity="0.9"/>
+          <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="baseOn" cx="0.5" cy="0.4" r="0.7">
+          <stop offset="0" stop-color="#ff6b76"/>
+          <stop offset="0.5" stop-color="#ef2233"/>
+          <stop offset="1" stop-color="#c1101f"/>
+        </radialGradient>
+
+        <!-- Glows -->
+        <filter id="glowW" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glowR" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+
+        <style>
+          text { font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Yu Gothic", sans-serif; }
+          .name  { font-size: 60px; font-weight: 600; fill: #eef4fd; }
+          .stat  { font-size: 51px; font-weight: 600; fill: #93a3bb; }
+          .chip  { font-size: 42px; font-weight: 700; fill: #ffffff; }
+          .abbr  { font-size: 70px; font-weight: 700; fill: #ffffff; letter-spacing: 0.5px; }
+          .score { font-size: 150px; font-weight: 700; fill: #ffffff; }
+          .inn   { font-size: 128px; font-weight: 700; fill: #ffffff; }
+          .count { font-size: 74px; font-weight: 700; fill: #f2f6ff; letter-spacing: 2px; }
+        </style>
+      </defs>
+
+      <!-- Frame -->
+      <rect x="4" y="4" width="1152" height="552" rx="20" fill="url(#bezel)"/>
+      <rect x="6" y="5" width="1148" height="6" rx="3" fill="#6d778c" opacity="0.5"/>
+      <rect x="13" y="13" width="1134" height="534" rx="12" fill="url(#boardBg)"/>
+      <rect x="13.75" y="13.75" width="1132.5" height="532.5" rx="11" fill="none" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.5"/>
+
+      <!-- ===== TOP BAND (matchup) ===== -->
+      <rect x="20" y="20" width="1120" height="170" rx="8" fill="url(#topBand)"/>
+
+      <!-- Batter row -->
+      <rect x="30" y="30" width="62" height="62" rx="11" fill="#e11d2f"/>
+      <rect x="30" y="30" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14"/>
+      <text class="chip" x="61" y="74" text-anchor="middle">1</text>
+      <text class="name" x="110" y="82">N.Batter</text>
+      <text class="stat" x="1130" y="79" text-anchor="end">0-0</text>
+
+      <line x1="30" y1="110" x2="1130" y2="110" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1"/>
+
+      <!-- Pitcher row -->
+      <rect x="30" y="120" width="62" height="62" rx="11" fill="#2743e0"/>
+      <rect x="30" y="120" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14"/>
+      <text class="chip" x="61" y="164" text-anchor="middle">P</text>
+      <text class="name" x="110" y="172">N.Pitcher</text>
+      <text class="stat" x="1130" y="169" text-anchor="end">P.32</text>
+
+      <!-- Section separator -->
+      <rect x="20" y="198" width="1120" height="2.5" rx="1.25" fill="url(#accent)"/>
+
+      <!-- ===== SCORE MAIN ===== -->
+      <!-- Inning panel: number vertically centered in the panel, triangle above -->
+      <polygon points="88,244 116,296 60,296" fill="#ffffff" filter="url(#glowW)"/>
+      <text class="inn" x="88" y="421" text-anchor="middle" filter="url(#glowW)">2</text>
+      <line x1="150" y1="214" x2="150" y2="540" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
+
+      <!-- Away team bar: name area fits 6 zenkaku chars -->
+      <rect x="162" y="212" width="774" height="158" rx="13" fill="url(#awayBar)"/>
+      <rect x="162" y="212" width="774" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
+      <!-- ABS pips (remaining challenges) -->
+      <rect x="174" y="244" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
+      <rect x="174" y="296" width="13" height="42" rx="5" fill="#ffffff" opacity="0.35"/>
+      <!-- Logo (baseball placeholder) -->
+      <circle cx="246" cy="291" r="43" fill="#f6f7f9" stroke="#c8ced8" stroke-width="2"/>
+      <path d="M 220 262 Q 238 291 220 320" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 272 262 Q 254 291 272 320" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
+      <text class="abbr" x="302" y="316">ソフトバンク</text>
+      <!-- Score slot: fixed region x 746-936 flush to bar right edge, digits centered -->
+      <line x1="746" y1="226" x2="746" y2="356" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
+      <text class="score" x="841" y="345" text-anchor="middle" filter="url(#glowW)">1</text>
+
+      <!-- Home team bar -->
+      <rect x="162" y="382" width="774" height="158" rx="13" fill="url(#homeBar)"/>
+      <rect x="162" y="382" width="774" height="79" rx="13" fill="#ffffff" opacity="0.10"/>
+      <rect x="174" y="414" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
+      <rect x="174" y="466" width="13" height="42" rx="5" fill="#ffffff" opacity="0.92"/>
+      <circle cx="246" cy="461" r="43" fill="#f6f7f9" stroke="#c8ced8" stroke-width="2"/>
+      <path d="M 220 432 Q 238 461 220 490" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 272 432 Q 254 461 272 490" fill="none" stroke="#e11d2f" stroke-width="3" stroke-linecap="round"/>
+      <text class="abbr" x="302" y="486">ファイターズ</text>
+      <line x1="746" y1="396" x2="746" y2="526" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
+      <text class="score" x="841" y="515" text-anchor="middle" filter="url(#glowW)">0</text>
+
+      <line x1="946" y1="214" x2="946" y2="540" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
+
+      <!-- ===== STATUS PANEL ===== -->
+      <!-- Bases: 2nd top, 1st right (occupied), 3rd left -->
+      <polygon points="1046,220 1076,250 1046,280 1016,250" fill="#141b26" stroke="#47546c" stroke-width="3"/>
+      <polygon points="1090,264 1120,294 1090,324 1060,294" fill="url(#baseOn)" stroke="#ff707b" stroke-width="2" filter="url(#glowR)"/>
+      <polygon points="1002,264 1032,294 1002,324 972,294" fill="#141b26" stroke="#47546c" stroke-width="3"/>
+
+      <!-- Count -->
+      <text class="count" x="1046" y="425" text-anchor="middle">3-2</text>
+
+      <!-- Outs (LED dots, no label) -->
+      <circle cx="996" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
+      <circle cx="1046" cy="492" r="20" fill="url(#baseOn)" filter="url(#glowR)"/>
+      <circle cx="1096" cy="492" r="20" fill="#141b26" stroke="#47546c" stroke-width="3.5"/>
+    </svg>
+  </div>
+
+  <div class="caption">
+    <span>Baseball Scoreboard</span>
+    <span class="dot"></span>
+    <b>新デザイン案 &mdash; Broadcast&nbsp;LED</b>
+    <span class="dot"></span>
+    <span>無透過背景 / グリーンバック対応</span>
+  </div>
+</body>
+</html>

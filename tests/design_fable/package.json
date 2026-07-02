@@ -1,0 +1,9 @@
+{
+  "name": "design-fable-mockup",
+  "private": true,
+  "type": "module",
+  "description": "docs/design_claude_fable.jpg を生成するモックアップとスクリプト",
+  "dependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}
