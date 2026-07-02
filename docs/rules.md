@@ -31,6 +31,7 @@
 - 静的配信: `node:http` からビルド成果物の `dist/` を配信する（React移行中は旧クライアントを `/legacy` で併存配信する）。
 - リアルタイム反映: SSE（Server-Sent Events / ブラウザ標準の `EventSource`）。
 - フロントエンド: React ＋ MUI（Material UI）。Androidアプリに近いモダンなUI部品（ダイアログ、ドロワー、スライダー、スイッチ、スナックバーなど）を使い、フォームの多い操作画面を宣言的な状態管理で作る。
+- ルーティング: react-router-dom（HashRouter）。旧クライアントと同じ `#/viewer` 形式のURLを保ち、未移行ルートは `/legacy` へリダイレクトする。
 - ビルド: Vite。`npm start` が「ビルド → サーバー起動」を行い、利用者の手順は `npm install` と `npm start` のまま変えない。ビルド成果物（`dist/`）はGit管理対象外とし、サーバーが配信する。
 - 型の安全性: TypeScriptは導入せず、JavaScript（JSX）＋ JSDoc型注釈＋`// @ts-check`（`jsconfig.json`）でエディタ上の型チェックを得る。
 - 保存: 単一のJSONファイル（`storage/data/app.json`）。書き込みは一時ファイル→リネームのアトミック書き込みで壊れないようにする。
@@ -167,7 +168,7 @@ baseball-scoreboard/
 - 手順は上から順に1つずつ実行し、各手順後のテストに成功したら本リストを更新してGitに保存する。
 
 1. [済] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更し、旧クライアントを `/legacy` で併存配信する。Home Pageだけ移植して起動確認する。（React 19 / MUI 9 / Vite 8 を導入。旧クライアントは `src/client_legacy/` へ移動。単体テスト、ビルド、新Home・旧画面・API・ロゴ配信の動作確認済み）
-2. [未] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。
+2. [済] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。（`api/client.js`・`api/useServerState.js`・`ConfirmDialog`・`TopBar`・`LegacyRedirect` を追加し、react-router-dom を導入。未移行ルートは `/legacy` へ自動リダイレクト。Homeにボード数のライブ表示を付け、リロードなしのSSE反映・リダイレクト・不明ルートのHome復帰をヘッドレスブラウザで確認済み）
 3. [未] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。
 4. [未] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。
 5. [未] Score Input Page の操作ボタン群を移植する。操作ミスを防ぐグループ分けを保つ。
@@ -186,7 +187,7 @@ baseball-scoreboard/
 
 - Fable 5を親エージェント(main)として進める。
 - 方針決定、タスク分解、曖昧な判断、最終レビューはmainで行う。
-- 実装・テスト追加・機械的修正は sonnet5-implementer サブエージェントに委譲する。
+- 実装・テスト追加・機械的修正は codex-gpt55-implementer サブエージェントに委譲する。サブエージェントは Codex MCP を使い、model は gpt-5.5、sandbox は workspace-write にする。
 - サブエージェントの報告は、変更ファイル、判断、テスト結果、未解決事項だけに要約する。
 - 起動は簡単なコマンド（`npm install` と `npm start`）で完結する状態を保つ。`npm start` はViteビルドとサーバー起動を内包してよい。
 - ビルド工程やライブラリの追加は、スコアボードの表示・演出の質を高めるために必要な範囲で許容する。ただしWindows/Linux両対応と起動の簡単さを崩さない。追加時は理由を本ファイルに残す。
