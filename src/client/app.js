@@ -483,7 +483,6 @@ function playerMenuHtml(board) {
   return `
     <aside class="side-panel player-panel">
       <h2>選手名メニュー</h2>
-      <p>現在のピッチャーは各チームの最後の入力欄です。</p>
       ${playerSideHtml("away", board)}
       ${playerSideHtml("home", board)}
       <button class="primary" id="save-player-menu">保存</button>
@@ -494,7 +493,7 @@ function playerMenuHtml(board) {
 function playerSideHtml(side, board) {
   const label = side === "away" ? "先攻" : "後攻";
   const players = board.playerSettings[side].battingOrder;
-  const pitchers = board.playerSettings[side].pitchers;
+  const pitchers = normalizePitchersForView(board.playerSettings[side].pitchers, side);
   return `
     <fieldset>
       <legend>${label}</legend>
@@ -507,10 +506,26 @@ function playerSideHtml(side, board) {
           </label>
         `).join("")}
       </div>
-      <label>ピッチャー
-        <input data-pitcher="${side}:0" value="${escapeHtml(pitchers[pitchers.length - 1]?.pitcherName || "")}">
-      </label>
+      <section class="pitcher-editor" data-pitchers-side="${side}">
+        <div class="pitcher-editor-head">
+          <strong>ピッチャー一覧</strong>
+          <button type="button" class="small" data-add-pitcher="${side}">ピッチャー追加</button>
+        </div>
+        <div class="pitcher-list" data-pitcher-list="${side}">
+          ${pitchers.map((pitcher, index) => pitcherRowHtml(side, pitcher, index, index === pitchers.length - 1)).join("")}
+        </div>
+      </section>
     </fieldset>
+  `;
+}
+
+function pitcherRowHtml(side, pitcher, index, isCurrent) {
+  return `
+    <label class="pitcher-row">
+      <span>${isCurrent ? "現在" : index + 1}</span>
+      <input data-pitcher="${side}:${index}:name" value="${escapeHtml(pitcher.pitcherName || "")}">
+      <input type="number" min="0" data-pitcher="${side}:${index}:pitchCount" value="${Math.max(0, Number(pitcher.pitchCount || 0))}">
+    </label>
   `;
 }
 
@@ -707,13 +722,56 @@ function bindPlayerMenu(board) {
       if (field === "position") player.position = input.value;
       if (field === "ph") player.isPinchHitter = input.checked;
     });
-    document.querySelectorAll("[data-pitcher]").forEach((input) => {
-      const [side] = input.dataset.pitcher.split(":");
-      const pitchers = next[side].pitchers;
-      pitchers[pitchers.length - 1].pitcherName = input.value;
-    });
+    for (const side of ["away", "home"]) {
+      next[side].pitchers = collectPitchersFromDom(side);
+    }
     await action(board.id, "players:update", next);
   });
+  document.querySelectorAll("[data-add-pitcher]").forEach((button) => {
+    button.addEventListener("click", () => addPitcherRow(button.dataset.addPitcher));
+  });
+}
+
+function addPitcherRow(side) {
+  const list = document.querySelector(`[data-pitcher-list="${side}"]`);
+  if (!list) return;
+  const pitchers = collectPitchersFromDom(side);
+  pitchers.push({
+    pitcherName: defaultPitcherName(side, pitchers.length + 1),
+    pitchCount: 0,
+    order: pitchers.length + 1
+  });
+  list.innerHTML = pitchers
+    .map((pitcher, index) => pitcherRowHtml(side, pitcher, index, index === pitchers.length - 1))
+    .join("");
+}
+
+function collectPitchersFromDom(side) {
+  const pitchers = [];
+  document.querySelectorAll(`[data-pitcher-list="${side}"] [data-pitcher]`).forEach((input) => {
+    const [, indexText, field] = input.dataset.pitcher.split(":");
+    const index = Number(indexText);
+    if (!Number.isInteger(index)) return;
+    pitchers[index] ||= { pitcherName: "", pitchCount: 0, order: index + 1 };
+    if (field === "name") pitchers[index].pitcherName = input.value;
+    if (field === "pitchCount") pitchers[index].pitchCount = Math.max(0, Number(input.value || 0));
+  });
+  return normalizePitchersForView(pitchers, side);
+}
+
+function normalizePitchersForView(pitchers, side) {
+  const normalized = (Array.isArray(pitchers) ? pitchers : [])
+    .map((pitcher, index) => ({
+      pitcherName: String(pitcher?.pitcherName || defaultPitcherName(side, index + 1)),
+      pitchCount: Math.max(0, Number(pitcher?.pitchCount || 0)),
+      order: Number.isFinite(Number(pitcher?.order)) ? Number(pitcher.order) : index + 1
+    }));
+  return normalized.length ? normalized : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, order: 1 }];
+}
+
+function defaultPitcherName(side, order) {
+  const label = side === "away" ? "A" : "B";
+  return `${label}.Pitcher${order}`;
 }
 
 async function createBoard() {

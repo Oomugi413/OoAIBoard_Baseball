@@ -344,6 +344,34 @@ fieldset {
   min-width: 52px;
 }
 
+.pitcher-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pitcher-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pitcher-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pitcher-row {
+  grid-template-columns: 52px minmax(140px, 1fr) 90px;
+  align-items: center;
+}
+
+.pitcher-row span {
+  color: #374151;
+  font-size: 14px;
+}
+
 .check-row {
   display: flex;
   gap: 8px;
