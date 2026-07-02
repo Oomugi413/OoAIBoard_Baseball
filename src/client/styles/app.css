@@ -14,7 +14,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -54,7 +55,8 @@ button.disabled {
   cursor: not-allowed;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 34px;
   border: 1px solid #c8cfdb;
@@ -150,12 +152,15 @@ fieldset {
   flex-wrap: wrap;
   gap: 20px;
   transform-origin: top left;
+  overflow: visible;
+  padding: 2px;
 }
 
 .viewer-board {
   width: var(--board-width);
-  transform: scale(var(--viewer-scale));
+  transform: translate(var(--viewer-x, 0), var(--viewer-y, 0)) scale(var(--viewer-scale));
   transform-origin: top left;
+  will-change: transform;
 }
 
 .board-list {

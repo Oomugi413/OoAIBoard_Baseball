@@ -3,6 +3,7 @@ const viewerSettingsKey = "baseball-scoreboard.viewer";
 
 let state = { boards: [], settings: {}, presets: [] };
 let selectedBoardId = null;
+let selectedViewerBoardId = null;
 let showEditMenu = false;
 let showPlayerMenu = false;
 let viewerSettings = loadViewerSettings();
@@ -60,19 +61,29 @@ function renderHome() {
 
 function renderViewer() {
   const boards = state.boards || [];
+  selectedViewerBoardId = resolveViewerBoardId(boards);
+  const selectedPosition = selectedViewerBoardId ? getBoardPosition(selectedViewerBoardId) : { x: 0, y: 0 };
   document.body.style.background = viewerSettings.backgroundColor;
   app.innerHTML = `
     ${topBar("スコアボードを見る")}
     <main class="viewer-page">
       <section class="viewer-toolbar">
         <label>背景色 <input type="color" id="viewer-bg" value="${escapeHtml(viewerSettings.backgroundColor)}"></label>
-        <label>拡大率 <input type="range" id="viewer-scale" min="50" max="200" value="${viewerSettings.scale}"><span>${viewerSettings.scale}%</span></label>
-        <label>サイズ <input type="range" id="viewer-size" min="260" max="900" value="${viewerSettings.boardWidth}"><span>${viewerSettings.boardWidth}px</span></label>
+        <label>拡大率 <input type="range" id="viewer-scale" min="50" max="200" value="${viewerSettings.scale}"><span id="viewer-scale-value">${viewerSettings.scale}%</span></label>
+        <label>サイズ <input type="range" id="viewer-size" min="260" max="900" value="${viewerSettings.boardWidth}"><span id="viewer-size-value">${viewerSettings.boardWidth}px</span></label>
+        <label>位置対象
+          <select id="viewer-position-board" ${boards.length ? "" : "disabled"}>
+            ${boards.map((board) => `<option value="${escapeHtml(board.id)}" ${board.id === selectedViewerBoardId ? "selected" : ""}>${escapeHtml(board.name)}</option>`).join("")}
+          </select>
+        </label>
+        <label>位置X <input type="number" id="viewer-x" value="${selectedPosition.x}" ${boards.length ? "" : "disabled"}></label>
+        <label>位置Y <input type="number" id="viewer-y" value="${selectedPosition.y}" ${boards.length ? "" : "disabled"}></label>
+        <button id="viewer-position-reset" ${boards.length ? "" : "disabled"}>位置リセット</button>
         <button id="viewer-export">表示設定を書き出し</button>
         <button id="viewer-import">表示設定を読み込み</button>
       </section>
       <section class="viewer-grid" style="--viewer-scale:${viewerSettings.scale / 100}; --board-width:${viewerSettings.boardWidth}px;">
-        ${boards.length ? boards.map((board) => `<div class="viewer-board">${scoreboardHtml(board)}</div>`).join("") : emptyState("稼働中のスコアボードがありません。")}
+        ${boards.length ? boards.map(viewerBoardHtml).join("") : emptyState("稼働中のスコアボードがありません。")}
       </section>
     </main>
   `;
@@ -532,12 +543,30 @@ function bindViewerToolbar() {
   const bg = document.querySelector("#viewer-bg");
   const scale = document.querySelector("#viewer-scale");
   const size = document.querySelector("#viewer-size");
+  const boardSelect = document.querySelector("#viewer-position-board");
+  const posX = document.querySelector("#viewer-x");
+  const posY = document.querySelector("#viewer-y");
   bg?.addEventListener("input", () => {
     viewerSettings = persistViewerSettings({ backgroundColor: bg.value });
     document.body.style.background = viewerSettings.backgroundColor;
   });
-  scale?.addEventListener("input", () => updateViewerSettings({ scale: Number(scale.value) }));
-  size?.addEventListener("input", () => updateViewerSettings({ boardWidth: Number(size.value) }));
+  scale?.addEventListener("input", () => {
+    viewerSettings = persistViewerSettings({ scale: Number(scale.value) });
+    applyViewerLayoutSettings();
+  });
+  size?.addEventListener("input", () => {
+    viewerSettings = persistViewerSettings({ boardWidth: Number(size.value) });
+    applyViewerLayoutSettings();
+  });
+  boardSelect?.addEventListener("change", () => {
+    selectedViewerBoardId = boardSelect.value;
+    syncViewerPositionInputs();
+  });
+  posX?.addEventListener("input", () => updateSelectedBoardPosition({ x: Number(posX.value) }));
+  posY?.addEventListener("input", () => updateSelectedBoardPosition({ y: Number(posY.value) }));
+  document.querySelector("#viewer-position-reset")?.addEventListener("click", () => {
+    resetSelectedBoardPosition();
+  });
   document.querySelector("#viewer-export")?.addEventListener("click", () => {
     navigator.clipboard?.writeText(JSON.stringify(viewerSettings, null, 2));
     alert("表示設定をクリップボードへ書き出しました。");
@@ -654,6 +683,15 @@ function emptyState(message) {
   return `<div class="empty">${escapeHtml(message)}</div>`;
 }
 
+function viewerBoardHtml(board) {
+  const position = getBoardPosition(board.id);
+  return `
+    <div class="viewer-board" data-viewer-board="${escapeHtml(board.id)}" style="--viewer-x:${position.x}px; --viewer-y:${position.y}px;">
+      ${scoreboardHtml(board)}
+    </div>
+  `;
+}
+
 function updateViewerSettings(next) {
   viewerSettings = persistViewerSettings(next);
   render();
@@ -674,11 +712,79 @@ function loadViewerSettings() {
       backgroundColor: "#ffffff",
       scale: 100,
       boardWidth: 520,
+      boardPositions: {},
       ...JSON.parse(localStorage.getItem(viewerSettingsKey) || "{}")
     };
   } catch {
-    return { backgroundColor: "#ffffff", scale: 100, boardWidth: 520 };
+    return { backgroundColor: "#ffffff", scale: 100, boardWidth: 520, boardPositions: {} };
   }
+}
+
+function resolveViewerBoardId(boards) {
+  if (!boards.length) return null;
+  if (selectedViewerBoardId && boards.some((board) => board.id === selectedViewerBoardId)) {
+    return selectedViewerBoardId;
+  }
+  return boards[0].id;
+}
+
+function getBoardPosition(boardId) {
+  const saved = viewerSettings.boardPositions?.[boardId] || {};
+  return {
+    x: numberOrDefault(saved.x, 0),
+    y: numberOrDefault(saved.y, 0)
+  };
+}
+
+function updateSelectedBoardPosition(next) {
+  if (!selectedViewerBoardId) return;
+  const current = getBoardPosition(selectedViewerBoardId);
+  const x = Number.isFinite(next.x) ? next.x : current.x;
+  const y = Number.isFinite(next.y) ? next.y : current.y;
+  viewerSettings = persistViewerSettings({
+    boardPositions: {
+      ...(viewerSettings.boardPositions || {}),
+      [selectedViewerBoardId]: { x, y }
+    }
+  });
+  applyBoardPosition(selectedViewerBoardId);
+}
+
+function resetSelectedBoardPosition() {
+  if (!selectedViewerBoardId) return;
+  viewerSettings = persistViewerSettings({
+    boardPositions: {
+      ...(viewerSettings.boardPositions || {}),
+      [selectedViewerBoardId]: { x: 0, y: 0 }
+    }
+  });
+  syncViewerPositionInputs();
+  applyBoardPosition(selectedViewerBoardId);
+}
+
+function syncViewerPositionInputs() {
+  const position = selectedViewerBoardId ? getBoardPosition(selectedViewerBoardId) : { x: 0, y: 0 };
+  const posX = document.querySelector("#viewer-x");
+  const posY = document.querySelector("#viewer-y");
+  if (posX) posX.value = String(position.x);
+  if (posY) posY.value = String(position.y);
+}
+
+function applyBoardPosition(boardId) {
+  const position = getBoardPosition(boardId);
+  const element = document.querySelector(`[data-viewer-board="${cssEscape(boardId)}"]`);
+  element?.style.setProperty("--viewer-x", `${position.x}px`);
+  element?.style.setProperty("--viewer-y", `${position.y}px`);
+}
+
+function applyViewerLayoutSettings() {
+  const grid = document.querySelector(".viewer-grid");
+  grid?.style.setProperty("--viewer-scale", String(viewerSettings.scale / 100));
+  grid?.style.setProperty("--board-width", `${viewerSettings.boardWidth}px`);
+  const scaleValue = document.querySelector("#viewer-scale-value");
+  const sizeValue = document.querySelector("#viewer-size-value");
+  if (scaleValue) scaleValue.textContent = `${viewerSettings.scale}%`;
+  if (sizeValue) sizeValue.textContent = `${viewerSettings.boardWidth}px`;
 }
 
 function currentBatter(board) {
@@ -739,6 +845,16 @@ function adjustHexColor(hex, amount) {
     return Math.max(0, Math.min(255, current + amount));
   });
   return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(String(value));
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
+function numberOrDefault(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function batterLabel(batter) {
