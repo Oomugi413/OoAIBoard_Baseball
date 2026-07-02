@@ -45,6 +45,7 @@ export function createDefaultTeamSettings() {
       logoPath: "",
       teamColor: "#ef1d2f",
       textColor: "#ffffff",
+      abbreviationScale: 100,
       linkedPresetId: null
     },
     home: {
@@ -54,6 +55,7 @@ export function createDefaultTeamSettings() {
       logoPath: "",
       teamColor: "#4350d8",
       textColor: "#ffffff",
+      abbreviationScale: 100,
       linkedPresetId: null
     }
   };

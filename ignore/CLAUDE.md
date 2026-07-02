@@ -1,5 +1,8 @@
 # Subagent policy
 
+Ignore the rules on this file except:
+- If the user instructs to follow CLAUDE.md
+
 Use the main Fable 5 session for:
 - task decomposition
 - architecture decisions

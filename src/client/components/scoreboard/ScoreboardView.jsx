@@ -214,6 +214,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const dividerBottom = side === "away" ? 356 : 526;
   const gradientId = side === "away" ? `awayBar-${svgId}` : `homeBar-${svgId}`;
   const label = team.abbreviation || team.name;
+  const labelFontSize = Math.round(teamLabelFontSize(label) * teamAbbreviationScale(team));
 
   return (
     <>
@@ -225,7 +226,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
         className={`sb-text-${svgId} sb-abbr-${svgId}`}
         x="343"
         y={textY}
-        fontSize={teamLabelFontSize(label)}
+        fontSize={labelFontSize}
         fill={team.textColor || "#ffffff"}
       >
         {label}
@@ -387,6 +388,12 @@ function teamLabelFontSize(label) {
   }, 0);
   if (!weight) return 70;
   return Math.max(44, Math.min(70, Math.floor(420 / weight)));
+}
+
+function teamAbbreviationScale(team) {
+  const scale = Number(team?.abbreviationScale);
+  if (!Number.isFinite(scale)) return 1;
+  return Math.max(0.6, Math.min(1.6, scale / 100));
 }
 
 function normalizeHexColor(value) {

@@ -1,0 +1,445 @@
+// @ts-check
+import { useState } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Drawer from "@mui/material/Drawer";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Slider from "@mui/material/Slider";
+import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { api } from "../../api/client.js";
+
+const SIDES = ["away", "home"];
+const SIDE_LABELS = { away: "先攻", home: "後攻" };
+
+/**
+ * @param {{
+ *   open: boolean,
+ *   board: any,
+ *   presets: Array<any>,
+ *   onClose: () => void,
+ *   onSaved: (message: string) => void,
+ *   onError: (message: string) => void,
+ *   refresh: () => Promise<void>
+ * }} props
+ */
+export default function EditMenu({ open, board, presets, onClose, onSaved, onError, refresh }) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => createEditForm(board));
+
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateTeam = (side, field, value) => {
+    setForm((current) => ({
+      ...current,
+      teams: {
+        ...current.teams,
+        [side]: {
+          ...current.teams[side],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleLogoFile = async (side, file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await createLogoDataUrl(file);
+      updateTeam(side, "logoPath", "");
+      updateTeam(side, "pendingLogo", dataUrl);
+    } catch (error) {
+      onError(error.message);
+    }
+  };
+
+  const clearLogo = (side) => {
+    updateTeam(side, "logoPath", "");
+    updateTeam(side, "pendingLogo", "");
+  };
+
+  const loadPreset = (side) => {
+    const presetId = form.teams[side].selectedPresetId;
+    const preset = presets.find((item) => item.id === presetId);
+    if (!preset) return;
+    setForm((current) => ({
+      ...current,
+      teams: {
+        ...current.teams,
+        [side]: {
+          ...current.teams[side],
+          name: preset.name || "",
+          abbreviation: preset.abbreviation || "",
+          teamColor: preset.teamColor || "#1f5fbf",
+          textColor: preset.textColor || "#ffffff",
+          logoPath: preset.logoPath || "",
+          pendingLogo: "",
+          linkedPresetId: preset.id,
+          selectedPresetId: preset.id
+        }
+      }
+    }));
+  };
+
+  const saveTeamPreset = async (side) => {
+    setSaving(true);
+    try {
+      const team = await resolveTeamForSave(form.teams[side]);
+      const preset = await api("/api/presets", {
+        method: "POST",
+        body: JSON.stringify({
+          presetName: team.name || team.abbreviation || "Team Preset",
+          name: team.name,
+          abbreviation: team.abbreviation,
+          logoPath: team.logoPath,
+          teamColor: team.teamColor,
+          textColor: team.textColor
+        })
+      });
+      updateTeam(side, "linkedPresetId", preset.id);
+      updateTeam(side, "selectedPresetId", preset.id);
+      updateTeam(side, "logoPath", team.logoPath);
+      updateTeam(side, "pendingLogo", "");
+      await refresh();
+      onSaved("チームプリセットを保存しました。");
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEditMenu = async () => {
+    setSaving(true);
+    try {
+      const teams = {};
+      for (const side of SIDES) {
+        teams[side] = await resolveTeamForSave(form.teams[side]);
+      }
+
+      await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
+        method: "POST",
+        body: JSON.stringify({ type: "board:rename", payload: { name: form.boardName } })
+      });
+      for (const side of SIDES) {
+        await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
+          method: "POST",
+          body: JSON.stringify({ type: "team:update", payload: { side, values: teams[side] } })
+        });
+      }
+      await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "display:update",
+          payload: {
+            showAbs: form.showAbs,
+            showMatchup: form.showMatchup
+          }
+        })
+      });
+      setForm((current) => ({
+        ...current,
+        teams: {
+          away: { ...current.teams.away, logoPath: teams.away.logoPath, pendingLogo: "" },
+          home: { ...current.teams.home, logoPath: teams.home.logoPath, pendingLogo: "" }
+        }
+      }));
+      await refresh();
+      onSaved("編集メニューを保存しました。");
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      PaperProps={{ sx: { width: { xs: "100%", sm: 440 }, maxWidth: "100%" } }}
+    >
+      <Box sx={{ p: 2 }}>
+        <Stack spacing={2}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Typography variant="h6" component="h2">
+              編集メニュー
+            </Typography>
+            <Button onClick={onClose}>閉じる</Button>
+          </Stack>
+          <TextField
+            label="スコアボード名"
+            value={form.boardName}
+            onChange={(event) => updateField("boardName", event.target.value)}
+            fullWidth
+          />
+          {SIDES.map((side) => (
+            <TeamSection
+              key={side}
+              side={side}
+              team={form.teams[side]}
+              presets={presets}
+              saving={saving}
+              onUpdate={updateTeam}
+              onLogoFile={handleLogoFile}
+              onClearLogo={clearLogo}
+              onLoadPreset={loadPreset}
+              onSavePreset={saveTeamPreset}
+            />
+          ))}
+          <Divider />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.showAbs}
+                onChange={(event) => updateField("showAbs", event.target.checked)}
+              />
+            }
+            label="ABS表示"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.showMatchup}
+                onChange={(event) => updateField("showMatchup", event.target.checked)}
+              />
+            }
+            label="対戦選手表示"
+          />
+          <Button variant="contained" disabled={saving} onClick={saveEditMenu}>
+            編集内容を保存
+          </Button>
+        </Stack>
+      </Box>
+    </Drawer>
+  );
+}
+
+function TeamSection({
+  side,
+  team,
+  presets,
+  saving,
+  onUpdate,
+  onLogoFile,
+  onClearLogo,
+  onLoadPreset,
+  onSavePreset
+}) {
+  const preview = team.pendingLogo || team.logoPath;
+  return (
+    <Box component="section" sx={{ display: "grid", gap: 1.5 }}>
+      <Divider />
+      <Typography variant="subtitle1" fontWeight="bold">
+        {SIDE_LABELS[side]}
+      </Typography>
+      <TextField
+        label="チーム名"
+        value={team.name}
+        onChange={(event) => onUpdate(side, "name", event.target.value)}
+      />
+      <TextField
+        label="略称"
+        value={team.abbreviation}
+        onChange={(event) => onUpdate(side, "abbreviation", event.target.value)}
+      />
+      <Stack spacing={0.5}>
+        <Typography variant="body2">略称拡大率 {team.abbreviationScale}%</Typography>
+        <Slider
+          value={team.abbreviationScale}
+          min={60}
+          max={160}
+          step={5}
+          marks={[
+            { value: 60, label: "60%" },
+            { value: 100, label: "100%" },
+            { value: 160, label: "160%" }
+          ]}
+          onChange={(_, value) => onUpdate(side, "abbreviationScale", Array.isArray(value) ? value[0] : value)}
+        />
+        <TextField
+          label="略称拡大率(%)"
+          type="number"
+          value={team.abbreviationScale}
+          inputProps={{ min: 60, max: 160, step: 5 }}
+          onChange={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 160, 100))}
+        />
+      </Stack>
+      <Stack direction="row" spacing={1}>
+        <TextField
+          label="チーム色"
+          type="color"
+          value={team.teamColor}
+          onChange={(event) => onUpdate(side, "teamColor", event.target.value)}
+          sx={{ flex: 1 }}
+        />
+        <TextField
+          label="文字色"
+          type="color"
+          value={team.textColor}
+          onChange={(event) => onUpdate(side, "textColor", event.target.value)}
+          sx={{ flex: 1 }}
+        />
+      </Stack>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button component="label" variant="outlined">
+          ロゴ画像
+          <input
+            hidden
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={(event) => onLogoFile(side, event.target.files?.[0] || null)}
+          />
+        </Button>
+        <Button onClick={() => onClearLogo(side)}>ロゴ削除</Button>
+        <Typography variant="body2" color="text.secondary">
+          {preview ? "設定済み" : "未設定"}
+        </Typography>
+      </Stack>
+      {preview ? (
+        <Box
+          component="img"
+          src={preview}
+          alt=""
+          sx={{
+            width: 80,
+            height: 80,
+            objectFit: "contain",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 1,
+            bgcolor: "background.default"
+          }}
+        />
+      ) : null}
+      <Stack direction="row" spacing={1} alignItems="center">
+        <FormControl size="small" sx={{ flex: 1 }}>
+          <InputLabel id={`${side}-preset-label`}>プリセット</InputLabel>
+          <Select
+            labelId={`${side}-preset-label`}
+            label="プリセット"
+            value={team.selectedPresetId}
+            onChange={(event) => onUpdate(side, "selectedPresetId", event.target.value)}
+          >
+            <MenuItem value="">プリセットを選択</MenuItem>
+            {presets.map((preset) => (
+              <MenuItem key={preset.id} value={preset.id}>
+                {preset.presetName || preset.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button disabled={saving || !team.selectedPresetId} onClick={() => onLoadPreset(side)}>
+          読込
+        </Button>
+        <Button disabled={saving} onClick={() => onSavePreset(side)}>
+          プリセット保存
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function createEditForm(board) {
+  return {
+    boardName: board.name || "",
+    showAbs: Boolean(board.displayOptions?.showAbs),
+    showMatchup: Boolean(board.displayOptions?.showMatchup),
+    teams: {
+      away: createTeamForm(board.teamSettings.away),
+      home: createTeamForm(board.teamSettings.home)
+    }
+  };
+}
+
+function createTeamForm(team) {
+  return {
+    name: team.name || "",
+    abbreviation: team.abbreviation || "",
+    logoPath: team.logoPath || "",
+    pendingLogo: "",
+    teamColor: team.teamColor || "#1f5fbf",
+    textColor: team.textColor || "#ffffff",
+    linkedPresetId: team.linkedPresetId || "",
+    selectedPresetId: team.linkedPresetId || "",
+    abbreviationScale: clampNumber(team.abbreviationScale, 60, 160, 100)
+  };
+}
+
+async function resolveTeamForSave(team) {
+  const logoPath = team.pendingLogo ? await uploadLogo(team.pendingLogo) : team.logoPath;
+  return {
+    name: team.name,
+    abbreviation: team.abbreviation,
+    teamColor: team.teamColor,
+    textColor: team.textColor,
+    logoPath,
+    linkedPresetId: team.linkedPresetId || null,
+    abbreviationScale: clampNumber(team.abbreviationScale, 60, 160, 100)
+  };
+}
+
+async function uploadLogo(dataUrl) {
+  const result = await api("/api/uploads/team-logo", {
+    method: "POST",
+    body: JSON.stringify({ dataUrl })
+  });
+  return result.logoPath;
+}
+
+function createLogoDataUrl(file) {
+  const mimeType = detectLogoMimeType(file);
+  if (!mimeType) {
+    return Promise.reject(new Error("PNGまたはJPEG画像を選択してください。"));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
+    reader.addEventListener("load", () => {
+      const image = new Image();
+      image.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
+      image.addEventListener("load", () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("画像を変換できませんでした。"));
+          return;
+        }
+        if (mimeType === "image/jpeg") {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL(mimeType === "image/png" ? "image/png" : "image/jpeg", 0.86));
+      });
+      image.src = String(reader.result || "");
+    });
+    reader.readAsDataURL(file);
+  });
+}
+
+function detectLogoMimeType(file) {
+  if (["image/png", "image/jpeg"].includes(file.type)) return file.type;
+  const name = String(file.name || "").toLowerCase();
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  return "";
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, number));
+}
