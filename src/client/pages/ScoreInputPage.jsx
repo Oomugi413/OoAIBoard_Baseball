@@ -13,6 +13,7 @@ import { api } from "../api/client.js";
 import { useServerState } from "../api/useServerState.js";
 import TopBar from "../components/common/TopBar.jsx";
 import EditMenu from "../components/menus/EditMenu.jsx";
+import PlayerMenu from "../components/menus/PlayerMenu.jsx";
 import ScoreboardView from "../components/scoreboard/ScoreboardView.jsx";
 
 const BASE_LABELS = {
@@ -79,6 +80,7 @@ export default function ScoreInputPage() {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [playerOpen, setPlayerOpen] = useState(false);
   const board = (state.boards || []).find((item) => item.id === boardId);
 
   const runAction = async (type, payload = {}) => {
@@ -197,7 +199,7 @@ export default function ScoreInputPage() {
             <ActionButton label="戻る" type="history:undo" disabled={pending} onAction={runAction} />
             <ActionButton label="進む" type="history:redo" disabled={pending} onAction={runAction} />
             <Button onClick={() => setEditOpen(true)}>編集メニュー</Button>
-            <Button onClick={() => setMessage("選手名メニューは第2期の手順7で移植します。")}>選手名メニュー</Button>
+            <Button onClick={() => setPlayerOpen(true)}>選手名メニュー</Button>
           </ControlGroup>
         </Stack>
       </Box>
@@ -207,6 +209,16 @@ export default function ScoreInputPage() {
           board={board}
           presets={state.presets || []}
           onClose={() => setEditOpen(false)}
+          onSaved={setMessage}
+          onError={setMessage}
+          refresh={refresh}
+        />
+      ) : null}
+      {playerOpen ? (
+        <PlayerMenu
+          open={playerOpen}
+          board={board}
+          onClose={() => setPlayerOpen(false)}
           onSaved={setMessage}
           onError={setMessage}
           refresh={refresh}

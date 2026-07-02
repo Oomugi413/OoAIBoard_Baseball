@@ -3,4 +3,3 @@ storage/*.log
 storage/uploads/
 node_modules/
 dist/
-.claude/
