@@ -30,8 +30,9 @@
 - サーバー: Node標準の `node:http`。追加のWebフレームワークは使わない。
 - 静的配信: `node:http` から `src/client/` を直接配信する。
 - リアルタイム反映: SSE（Server-Sent Events / ブラウザ標準の `EventSource`）。
-- フロントエンド: 素のJavaScript（ESモジュール）を基本にする。表示・演出の質を高めるために必要なら、軽量なビルド工程やライブラリの追加を許容する。
-- 型の安全性: TypeScriptの代わりに JSDoc 型注釈 ＋ `// @ts-check`（`jsconfig.json`）で、まずはビルドなしでエディタ上の型チェックを得る。
+- フロントエンド: React ＋ MUI（Material UI）。Androidアプリに近いモダンなUI部品（ダイアログ、ドロワー、スライダー、スイッチ、スナックバーなど）を使い、フォームの多い操作画面を宣言的な状態管理で作る。
+- ビルド: Vite。`npm start` が「ビルド → サーバー起動」を行い、利用者の手順は `npm install` と `npm start` のまま変えない。ビルド成果物（`dist/`）はGit管理対象外とし、サーバーが配信する。
+- 型の安全性: TypeScriptは導入せず、JavaScript（JSX）＋ JSDoc型注釈＋`// @ts-check`（`jsconfig.json`）でエディタ上の型チェックを得る。
 - 保存: 単一のJSONファイル（`storage/data/app.json`）。書き込みは一時ファイル→リネームのアトミック書き込みで壊れないようにする。
 - スコアボード描画: インラインSVG（ベクター描画）。詳細は `scoreboard_design.md` の 3.3。
 - スタイル: CSS（カスタムプロパティ、グラデーション、フィルター）。
@@ -46,12 +47,18 @@
 - SSE はブラウザ標準で切断時の自動再接続を備え、追加ライブラリなしにスマホを含む対象ブラウザで動く。
 - データ量はボード数個＋プリセット＋設定でキロバイト級のため、JSONファイルで十分。アトミック書き込みでアプリ終了後も安全に保存できる。
 - スコアボードをSVGで描くと解像度に依存せず、配信解像度や端末ごとの拡大縮小でも文字と図形を鮮明に保てる（`scoreboard_design.md` 3.3 参照）。
+- React ＋ MUI により、編集メニューのようなフォームの多い画面を「状態 → 表示」の一方向で書けるため、再描画で入力が消える・イベントの貼り直し漏れといった、手作業のDOM状態管理に起因するバグの類型を根治できる。
+- MUI はAndroidで馴染みのある Material Design 系のUI部品が揃っており、メニューのオーバーレイ化などを部品1つで実現できる。
+- React ＋ MUI はAIコーディング支援が最も習熟している組み合わせで、AIエージェントが実装を担うこのプロジェクトの開発体制と相性がよい。
+- Vite のビルドは短時間で終わるため、`npm start` に内包しても非プログラマの起動手順を変えずに済む。
 - リッチな演出のためのビルドやライブラリ（Lottie など）は禁止しない。ただし起動の簡単さ（`npm install` と `npm start`）とWindows/Linux両対応は守る。
 - ロゴ画像変換をブラウザ標準機能で行うため、画像変換用の追加npm依存が不要になり、Windows/Linuxの導入手順を増やさずに済む。
 
 見送った候補と理由（`3. Coding Rules` の方針に基づき記録する）:
 
-- React + TypeScript + Vite: 5ページ規模には過剰で、状態更新のたびに再描画する現行方式で足りる。将来UIが複雑化したら再検討する。型はまず JSDoc＋`@ts-check` で代替する。
+- 素のJavaScript（ESモジュール）のみ: 初期実装（第1期）で採用したが、クライアントが1500行超に成長し、innerHTML全再描画と手動イベント接続によるフォーム系の不具合（例: プリセット保存で編集中の入力が消える）が発生したため、React ＋ MUI へ移行する。
+- MDUI 2 / @material/web（Material Design 3 のWebコンポーネント）: ビルドなしで見た目を改善できるが、フォーム状態管理の問題が残る。@material/web はメンテナンスモードで将来性に不安がある。
+- Vue + Vuetify / Svelte: 実現は可能だが、UI部品の充実度とAIコーディング支援の習熟度で React ＋ MUI に劣後する。
 - Express: ルーティングと静的配信は `node:http` で足り、依存を1つ減らせる。
 - Socket.IO: 双方向通信もルーム管理も不要。SSEで要件を満たせ、依存を減らせる。
 - SQLite（better-sqlite3 等）: ネイティブモジュールで環境によりインストールに失敗する恐れがあり、非プログラマ運用の最大リスク。データ規模的にもJSONで足りる。将来データが増えた場合は、追加インストール不要でNodeに内蔵された `node:sqlite` へ移行できる余地を残す。
@@ -75,33 +82,39 @@ baseball-scoreboard/
     user_guide.txt            # 起動・終了・基本操作
     design_plan.jpg           # レイアウト参考画像
     design_claude_fable.jpg   # 採用デザイン案の画像
-  package.json                # "type": "module"、scripts(start/test)
+  package.json                # "type": "module"、scripts(start/dev/test)、依存: react / @mui/material / vite など
+  vite.config.js              # Vite設定（クライアントのルート、ビルド出力 dist/、開発時の /api プロキシ）
   jsconfig.json               # @ts-check によるエディタ型チェック
   .gitignore
   src/
-    client/                   # ブラウザ用。ESモジュールとして配信
-      index.html
-      app.js                  # エントリ。ルーティング、状態同期(SSE)、再描画の起点
-      lib/
-        api.js                # fetchラッパと EventSource(SSE) クライアント
-        router.js             # ハッシュルーティング
-        viewerSettings.js     # 端末ごとの表示プロパティ(localStorage)と入出力
+    client/                   # React + MUI。Viteで dist/ にビルドしてサーバーが配信
+      index.html              # エントリHTML（main.jsx を読み込む）
+      main.jsx                # Reactエントリ。ルーティング(HashRouter)とMUIテーマを設定
+      theme.js                # MUIテーマ（配色、自己ホストフォントの適用）
+      api/
+        client.js             # fetchラッパ
+        useServerState.js     # SSE(EventSource)を購読し、boards/presets/settingsを共有するフック
+      pages/
+        HomePage.jsx
+        ViewerPage.jsx
+        ControlListPage.jsx
+        ScoreInputPage.jsx
+        SettingsPage.jsx
+        PresetReorderPage.jsx
+      components/
         scoreboard/
-          scoreboardView.js   # インラインSVGのスコアボード描画（表示専用）
-          overlay.js          # HOME RUN / K などの一時演出オーバーレイ
-        pages/
-          homePage.js
-          viewerPage.js
-          controlListPage.js
-          scoreInputPage.js
-          settingsPage.js
+          ScoreboardView.jsx  # インラインSVGのスコアボード（表示専用、Broadcast LEDデザインを移植）
+          OverlayEffect.jsx   # HOME RUN / K などの一時演出オーバーレイ
+        controls/             # スコア入力ボタン群（投球、打席結果、アウト、ランナー、得点、ABS、履歴）
         menus/
-          editMenu.js
-          playerMenu.js
-      styles/
-        app.css               # 全体スタイル（規模に応じ scoreboard.css 等へ分割可）
+          EditMenu.jsx        # 編集メニュー（MUI Drawerによるオーバーレイ、閉じるボタン付き）
+          PlayerMenu.jsx      # 選手名メニュー（同上）
+        common/
+          ConfirmDialog.jsx   # 削除確認などの共通ダイアログ
+      viewer/
+        viewerSettings.js     # 端末ごとの表示プロパティ(localStorage)と入出力
       fonts/                  # 自己ホストのWebフォント（同梱）
-    server/                   # ローカルサーバー（node:http）
+    server/                   # ローカルサーバー（node:http）。移行完了後は dist/ を静的配信する
       index.mjs               # サーバ起動、静的配信、APIルーティング、SSE
       lib/
         store.js              # app.json の読み書き（アトミック書き込み）
@@ -112,6 +125,7 @@ baseball-scoreboard/
     shared/                   # クライアント/サーバー双方で使う定義とルール
       scoringRules.mjs        # 試合状態と applyAction（サーバーが利用、単体テスト対象）
       types.js                # JSDoc typedef（@ts-check で共有する型の形）
+  dist/                       # Viteのビルド成果物。実行時に生成され、Git管理対象外
   storage/                    # 実行時に生成。Git管理対象外
     data/
       app.json                # boards + presets + settings
@@ -127,43 +141,53 @@ baseball-scoreboard/
 ファイルの役割:
 
 - `docs/` は設計ファイル群。`rules.md`（本ファイル）にプロジェクト全体のルールとファイル構成、`scoreboard_design.md` に見た目、`operation.md` に実装したい機能と操作ルール、`data_model.md` にデータ構造を置く。
-- `src/client/` はブラウザで動く画面一式。`app.js` をエントリに、`lib/pages/` へ各ページ、`lib/menus/` へメニュー、`lib/scoreboard/` へ表示専用のスコアボード描画（インラインSVG）を置く。スコアボード描画は操作ボタンを含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
-- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、静的配信・APIルーティング・SSE・ロゴアップロード保存をまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除を扱う。
+- `src/client/` はReact ＋ MUIで作るブラウザ画面一式。Viteで `dist/` にビルドし、サーバーが配信する。`pages/` に各ページ、`components/menus/` にメニュー（MUI Drawerによるオーバーレイ）、`components/scoreboard/` に表示専用のスコアボード描画（インラインSVG）を置く。スコアボード描画は操作ボタンを含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
+- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、静的配信・APIルーティング・SSE・ロゴアップロード保存をまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除を扱う。React移行によるサーバーの変更は、静的配信先を `dist/` に切り替える点だけで、REST・SSEのAPIは変わらない。
 - `src/shared/` はクライアント/サーバー双方で使う定義とルール。`scoringRules.mjs` は試合状態と操作（applyAction）を持ち、単体テストの対象にする。
 - `storage/` は実行時に生成されるJSONデータとロゴ画像。Git管理対象から外す。
 
 ### 2.2 Implementation Lists
 
-実装に進む場合の推奨順。
 実装状況の凡例: [済] = 実装済み / [一部] = 一部実装 / [未] = 未実装。
 （実装状況の最終確認日: 2026-07-02）
 
-1. [済] プロジェクト雛形を作る。
-2. [済] スコアボード表示だけを先に作る。
-3. [済] ダミーデータでデザインを整える。（`scoreboard_design.md` 3.2 の Broadcast LED デザインへ置き換え済み。インラインSVGで描画し、`tests/design_fable/measure.mjs` と実アプリ表示確認を実施）
-4. [済] スコア状態の型と操作ルールを作る。
-5. [済] スコア入力画面を作る。
-6. [済] 閲覧画面と操作画面をリアルタイム連携する。（SSEで実装）
-7. [済] チームプリセットを保存できるようにする。（Settings Pageで作成・編集・削除・ドラッグ並べ替え、編集メニューで読み込み・現在チームのプリセット保存を実装済み）
-8. [済] ロゴアップロードと256x256変換を追加する。（PNG/JPEG選択、ブラウザCanvasによる256x256変換、サーバー保存、スコアボード反映、未使用ロゴ削除を実装済み）
-9. [済] 選手名メニューと成績計算を追加する。（打者の編集、成績計算、ピッチャー追加、ピッチャー一覧編集を実装済み）
-10. [済] 戻る、進むを追加する。（キーボードショートカットは未実装）
-11. [未] 複数端末操作の競合処理を確認する。（後勝ちの方針は決定済みだが、確認作業は未実施）
-12. [済] 複数スコアボード表示と削除を仕上げる。
-13. [済] 自動削除設定を追加する。
-14. [済] 削除確認を追加する。（ブラウザ標準の確認ダイアログで実装）
-15. [済] 配信用の背景色、拡大率、位置調整を仕上げる。（背景色・スコアボードごとの拡大率・サイズ数値入力・中央ドラッグ移動・端ドラッグ拡大縮小・最後に調整したスコアボードの前面表示を実装済み）
-16. [済] 端末ごとの表示プロパティの入出力を追加する。（クリップボード経由の簡易入出力で実装）
-17. [未] 閲覧画面の完全非表示UIモードを将来追加できる余地を残す。（将来項目）
+#### 第1期: 素のJavaScript版（完了）
+
+素のJavaScript＋基本CSSによる初期実装。全17手順のうち1〜10と12〜16が完了し、
+機能面はチームプリセット、ロゴアップロード、選手名メニュー、Viewer Pageの配置調整まで動いている。
+未完の2件（複数端末競合の確認、完全非表示UIモード）は第2期のリストへ引き継いだ。
+第1期の手順詳細はGit履歴（コミット `9e529ce` 時点の本ファイル）を参照。
+
+#### 第2期: React + MUI 移行
+
+操作画面のUIを React ＋ MUI で作り直す。進め方の方針:
+
+- 移行中もアプリが使える状態を保つ。旧クライアントは `/legacy` パスで配信し続け、全ページの移植が終わってから削除する。
+- サーバーのREST・SSE APIは変更しない。
+- 手順は上から順に1つずつ実行し、各手順後のテストに成功したら本リストを更新してGitに保存する。
+
+1. [未] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更し、旧クライアントを `/legacy` で併存配信する。Home Pageだけ移植して起動確認する。
+2. [未] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。
+3. [未] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。
+4. [未] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。
+5. [未] Score Input Page の操作ボタン群を移植する。操作ミスを防ぐグループ分けを保つ。
+6. [未] 編集メニューを MUI Drawer のオーバーレイとして再実装する。閉じるボタンを付け、パソコンでは操作ボタンの上に重ねて表示する。フォームを状態管理に載せ替え、「プリセット保存で既存設定がリセットされる」不具合をここで根治する。あわせて、チーム略称テキストの拡大率設定を編集メニューに追加する。
+7. [未] 選手名メニューを MUI Drawer のオーバーレイとして再実装する。先攻/後攻のタブ、打者1-9番、ピッチャー追加・一覧編集。
+8. [未] Settings Page とプリセット並べ替え画面を移植する。プリセット作成・編集・削除、ドラッグ並べ替え、ロゴアップロード、未使用ロゴ削除。
+9. [未] Viewer Page を移植する。中央ドラッグ移動、端ドラッグ拡大縮小、数値入力、最後に調整したボードの前面表示、表示プロパティ入出力の既存挙動を維持する。
+10. [未] 旧クライアント（`/legacy`）を削除し、配信を `dist/` のみにする。`user_guide.txt` の起動手順（`npm install` が必須になる等）を実装に合わせて更新する。
+11. [未] 戻る、進むのキーボードショートカット（Ctrl+Z / Cmd+Z、Ctrl+Shift+Z / Cmd+Shift+Z）を追加する。
+12. [未] 複数端末操作の競合処理を確認する。後勝ちの動作と、SSE更新が編集中フォームの入力を消さないことを確認する。（第1期11の引き継ぎ）
+13. [未] 閲覧画面の完全非表示UIモードを将来追加できる余地を残す。（第1期17の引き継ぎ、優先度最下位）
 
 ## 3. Coding Rules
 
 実装時のルール。
 
-- 起動は簡単なコマンド（`npm install` と `npm start`）で完結する状態を保つ。
+- 起動は簡単なコマンド（`npm install` と `npm start`）で完結する状態を保つ。`npm start` はViteビルドとサーバー起動を内包してよい。
 - ビルド工程やライブラリの追加は、スコアボードの表示・演出の質を高めるために必要な範囲で許容する。ただしWindows/Linux両対応と起動の簡単さを崩さない。追加時は理由を本ファイルに残す。
 - 実行時の追加npm依存は、必要な範囲にとどめる。新たに追加する場合は、純JavaScript製で環境依存が少ないものを優先し、理由を本ファイルに残す。
-- 型はまず TypeScript を導入せず、JSDoc注釈＋`// @ts-check` で確認する。将来的な導入は妨げない。
+- 型はまず TypeScript を導入せず、JavaScript（JSX）＋JSDoc注釈＋`// @ts-check` で確認する。将来的な導入は妨げない。
 - `app.json` への書き込みは、一時ファイルに書いてからリネームするアトミック書き込みにし、書き込み途中のクラッシュで壊れないようにする。
 - OS依存のパス区切りやシェル固有の書き方をコードに直接埋め込まない。
 - Windows/Linuxの各環境で前提となる要件は、`user_guide.txt` にまとめる。
@@ -175,9 +199,9 @@ baseball-scoreboard/
 
 現時点で保留・未反映の事項。決まり次第、該当ファイルへ反映する。
 
-- スコア入力画面の編集メニューや選手名メニューがパソコンではスコアボードの下に表示される。オーバーレイにして、パソコンでは投球、打席結果等の上に表示。また、オーバーレイに「閉じる」ボタンを表示。
-- スコア入力画面の編集メニューのチームプリセット保存ボタンが壊れている。既存の設定をリセットせず、確実にプリセットに保存できるように。
-- スコアボードのチーム略称テキストの拡大率を編集メニューから変更できるように。
-- スコアボード編集メニューを中心に煩雑な処理が多くあることから、Androidなどで見られるようなモダンなUIの採用を検討する。
-- コード側の整理（例: 盗塁死用の `keepCurrentBatterOnNextInning` フラグの要否）。次にコードを触るときに検討する。
-- 一時演出を Lottie で増やす場合の具体的な演出内容と、必要になるビルド構成。実装時に詰める。
+解決済み・移動済み: モダンUIの採用は React ＋ MUI に決定し `1. Tech Stack` へ反映した。
+編集メニューのオーバーレイ化・プリセット保存の不具合修正・チーム略称の拡大率設定は、
+`2.2 Implementation Lists` 第2期の手順6へ移した。
+
+- コード側の整理（例: 盗塁死用の `keepCurrentBatterOnNextInning` フラグの要否）。React移行で該当箇所を触るときに検討する。
+- 一時演出を Lottie で増やす場合の具体的な演出内容。React移行後はコンポーネントとして組み込めるため、移行完了後に詰める。
