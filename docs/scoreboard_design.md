@@ -1,12 +1,14 @@
 # Baseball Scoreboard Design Blueprint
 
-このファイルは、野球スコアボードアプリを作る前段階の設計図です。
-まだコードは作成せず、画面構成、データ構造、必要ファイル、今後決めることを整理します。
+このファイルは、野球スコアボードアプリの画面構成、スコアボードの見た目、メニューを整理する設計図です。
+プロジェクト全体のルール（技術スタック・実装順・コーディング規約・未決事項）は `rules.md`、
+実装したい構造は `operation.md` に置きます。
 
 詳細ファイル:
 
+- プロジェクト全体のルール（技術スタック・実装順・コーディング規約・未決事項）: `rules.md`
+- 実装したい構造と操作ルール: `operation.md`
 - データ構造の詳細: `data_model.md`
-- 操作ルールの詳細: `operation_rules.md`
 - ボタン一覧の詳細: `button_list.md`
 - 起動、終了、基本的な使い方の説明: `user_guide.txt`
 
@@ -33,52 +35,9 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 追加で別のポート番号が必要な場合は、`52583`, `52584` のように続きの番号を使う。
 - PC側のポート開放やファイアウォール設定は、このアプリでは自動変更しない。
 
-## 2. Adopted Tech Stack
+## 2. Page Structure
 
-技術選定は次の優先順位で決める。
-
-1. 非プログラマが `npm start` だけで起動できること（前提要件は Node.js と npm のみ）。
-2. Windows / Linux の両対応を崩さないこと。
-3. LAN内・数ボード・数端末という規模に対して過剰にしないこと。
-
-これらを満たすため、追加依存とビルド工程を最小化した構成を採用する。
-
-採用構成:
-
-- 実行環境: Node.js（LTS）。npm 同梱。
-- サーバー: Node標準の `node:http`。追加のWebフレームワークは使わない。
-- 静的配信: `node:http` から `src/client/` を直接配信する。
-- リアルタイム反映: SSE（Server-Sent Events / ブラウザ標準の `EventSource`）。
-- フロントエンド: 素のJavaScript（ESモジュール）。ビルド工程を持たず、`<script type="module">` でそのまま読み込む。
-- 型の安全性: TypeScriptの代わりに JSDoc 型注釈 ＋ `// @ts-check`（`jsconfig.json`）で、ビルドなしのままエディタ上の型チェックを得る。
-- 保存: 単一のJSONファイル（`storage/data/app.json`）。書き込みは一時ファイル→リネームのアトミック書き込みで壊れないようにする。
-- スコアボード描画: インラインSVG（ベクター描画）。詳細は 4.3。
-- スタイル: CSS（カスタムプロパティ、グラデーション、フィルター）。
-- フォント: 自己ホストのWebフォント（名前用のコンデンスド・ゴシック＋得点/カウント用の等幅数字）。CDNは使わず同梱する。
-- ロゴ画像変換: jimp（純JavaScript製の画像ライブラリ）。256x256変換・透過保持・圧縮に使う。これが唯一の実行時npm依存。
-- ロゴ保存: ローカルのアップロード用フォルダ（`storage/uploads/team-logos/`）に保存。
-
-理由:
-
-- `node:http` と SSE だけで、operation_rules.md の「操作をサーバーへ送る → サーバーが状態更新 → 閲覧画面へ通知」という一方向のリアルタイム反映を満たせる。双方向通信は不要。
-- SSE はブラウザ標準で切断時の自動再接続を備え、追加ライブラリなしにスマホを含む対象ブラウザで動く。
-- データ量はボード数個＋プリセット＋設定でキロバイト級のため、JSONファイルで十分。アトミック書き込みでアプリ終了後も安全に保存できる。
-- ビルド工程と追加依存を持たないことで、非プログラマが `npm start` だけで起動でき、Windows/Linux両対応も崩れにくい。
-- JSDoc ＋ `@ts-check` で、TypeScript相当の型チェックをビルドなしで得られ、スコア状態や操作履歴を安全に扱える。
-- スコアボードをSVGで描くと解像度に依存せず、配信解像度や端末ごとの拡大縮小でも文字と図形を鮮明に保てる（4.3 参照）。
-- jimp は純JavaScript製でネイティブビルドが不要なため、Windows/Linuxのどちらでもインストールに失敗しにくい。
-
-見送った候補と理由（`12. Coding Rules` の方針に基づき記録する）:
-
-- React + TypeScript + Vite: ビルド工程と多数の依存が増え、`npm start` だけで動く手軽さが失われる。画面は5ページで、状態更新のたびに再描画する現行方式で足りる。型はJSDoc＋`@ts-check`で代替する。
-- Express: ルーティングと静的配信は `node:http` で足り、依存を1つ減らせる。
-- Socket.IO: 双方向通信もルーム管理も不要。SSEで要件を満たせ、依存を減らせる。
-- SQLite（better-sqlite3 等）: ネイティブモジュールで環境によりインストールに失敗する恐れがあり、非プログラマ運用の最大リスク。データ規模的にもJSONで足りる。将来データが増えた場合は、追加インストール不要でNodeに内蔵された `node:sqlite` へ移行できる余地を残す。
-- sharp（画像変換）: 高速だがネイティブバイナリ依存。256x256のロゴ変換では速度差は体感できないため、純JS製の jimp を優先する。
-
-## 3. Page Structure
-
-### 3.1 Home Page
+### 2.1 Home Page
 
 トップページ。
 
@@ -93,7 +52,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - `/`
 
-### 3.2 Viewer Page
+### 2.2 Viewer Page
 
 稼働中のスコアボードをすべて並べて表示するページ。
 配信ソフトのブラウザソースで使うことを想定する。
@@ -122,7 +81,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - `/viewer`
 
-保存対象:
+保存対象（すべて各ブラウザ内に保存）:
 
 - viewer background color
 - viewer scale
@@ -131,7 +90,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - scoreboard display order
 - viewer property export data
 
-### 3.3 Control List Page
+### 2.3 Control List Page
 
 「スコアボードを動かす」ページ。
 稼働中のスコアボードを一覧表示し、選択してスコア入力画面に入る。
@@ -158,7 +117,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - `/control`
 
-### 3.4 Score Input Page
+### 2.4 Score Input Page
 
 個別スコアボードの操作画面。
 
@@ -178,7 +137,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - `/control/:boardId`
 
-### 3.5 Settings Page
+### 2.5 Settings Page
 
 アプリ全体の設定画面。
 
@@ -195,22 +154,22 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - `/settings`
 
-## 4. Scoreboard Visual Design
+## 3. Scoreboard Visual Design
 
 レイアウトの参考画像は `design_plan.jpg`。
-採用するビジュアルデザインは `design_claude_fable.jpg`（詳細は 4.2）。
+採用するビジュアルデザインは `design_claude_fable.jpg`（詳細は 3.2）。
 `design_plan.jpg` は配置の指針として使い、細かなズレは再現せず、実装時はバランスを整えて配置する。
 
-### 4.1 基本レイアウト
+### 3.1 基本レイアウト
 
 基本レイアウト:
 
-- 全体は黒背景の横長スコアボード
+- 全体は黒基調（紺〜黒のグラデーション）の横長スコアボード。背景は無透過。
 - 左側にイニング表示
 - 中央にチーム情報と得点
 - 右側にランナー、カウント、アウト数
 - 上側に対戦選手表示オプション
-- 文字はNoto Sansなどの明瞭なゴシック体を優先し、参考画像に近い太く読みやすい表示にする。
+- 文字の書体・サイズの詳細は 3.3 のタイポグラフィに従う。
 - 打順番号と `P` の背景四角は、文字が視認しやすい大きさにする。
 - バッター行とピッチャー行の間には、通常文字色と同じ白の仕切り線を左から右まで一直線に入れる。
 - イニング表記、チーム名、得点、ランナー表記、カウント、アウト数は、上部の選手表記より大きく表示する。
@@ -245,10 +204,9 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 得点はスコアボード内で最も大きく表示する。
 チームカラー上の文字色はチームごとに設定可能とし、初期値は白にする。
 
-### 4.2 採用デザイン: Broadcast LED スタイル
+### 3.2 採用デザイン: Broadcast LED スタイル
 
 参考画像: `design_claude_fable.jpg`
-（初稿は `design_claude_opus.jpg`。フィードバックを反映した改訂版 `design_claude_fable.jpg` が現行案）
 
 ![新スコアボードデザイン案 (Broadcast LED)](design_claude_fable.jpg)
 
@@ -273,7 +231,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 得点スロットの左端には薄い仕切り線を入れ、得点部分とチーム略称の領域を分ける。チーム略称が長い場合は、仕切り線を越えないように略称側の文字を自動縮小する。
 - イニングの数字はイニング枠の上下中央に置き、表裏の三角はその上に添える。
 - 上部の打者・投手行の間には、参考画像どおり左右いっぱいの仕切り線を入れて行を分ける。
-- 打者・投手行の選手名と成績は、配信画面でも読みやすい大きめの文字にする（4.1のとおり、イニング・チーム名・得点・カウント類よりは小さくする）。
+- 打者・投手行の選手名と成績は、配信画面でも読みやすい大きめの文字にする（3.1のとおり、イニング・チーム名・得点・カウント類よりは小さくする）。
 - 打者・投手行と得点エリアの間には、細い水色（アクセントカラー）のセパレーターを入れて情報の階層を示す。
 - ランナーはひし形のベース図で表し、進塁中のベースは赤の塗り＋グローで点灯表現にする。
 - カウントは `3-2` のように大きく表示する。`B - S` などの補助ラベルは付けない。
@@ -288,7 +246,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 文字色: 白 (`#ffffff`)。チームカラー上の文字色はチームごとに設定可能で、初期値は白。
 - 点灯表示(ベース/アウト): 赤 (`#ef2233`)
 
-一時演出（`HOME RUN` / `K` / 逆向き `K`）は、この本体の上に重ねる全面オーバーレイとして表示し、CSSアニメーションまたはLottieで動きを付ける。表示秒数は全体設定に従う。
+一時演出（`HOME RUN` / `K` / 逆向き `K`）は、この本体の上に重ねる全面オーバーレイとして表示する。単純な動きはCSS/SVGアニメーションで、演出を増やす場合は Lottie で付ける。表示秒数は全体設定に従う。
 
 モックアップ生成ファイル（Claude以外のAIエージェントも参照可能）:
 
@@ -299,7 +257,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 デザインを修正する場合は `mockup.html` を編集し、`measure.mjs` で重なりがないことを確認してから `render.mjs` で画像を書き出す。
 
-### 4.3 レンダリング技術
+### 3.3 レンダリング技術
 
 スコアボード本体は、基本CSSではなく **インラインSVG（ベクター描画）** で描く。
 
@@ -324,9 +282,9 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 日本語表示部分は Noto Sans JP 系を併用する。
 - ライセンス上再配布可能なフォントを自己ホストし、OSに依存せず同じ見た目になるようにする。
 
-この方針は `2. Adopted Tech Stack` の スコアボード描画 / スタイル / フォント と対応する。
+この方針は `rules.md` の技術スタック（スコアボード描画 / スタイル / フォント）と対応する。
 
-## 5. Main Data Model
+## 4. Main Data Model
 
 この章の詳細は `data_model.md` に記載する。
 設計変更時は、この親設計書ではなく `data_model.md` を更新する。
@@ -342,13 +300,15 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - General Settings
 - Persistence Summary
 
-## 6. Operation Rules
+## 5. Operation Rules
 
-この章の詳細は `operation_rules.md` に記載する。
-設計変更時は、この親設計書ではなく `operation_rules.md` を更新する。
+この章の詳細は `operation.md` に記載する。
+`operation.md` は、実装したいスコアボード／HTMLページの構造（ファイル構成を含む）と、操作による状態変化を持つ。
+設計変更時は、この親設計書ではなく `operation.md` を更新する。
 
-`operation_rules.md` に含める内容:
+`operation.md` に含める内容:
 
+- File Structure
 - Pitch Buttons
 - Plate Appearance Buttons
 - Out Buttons
@@ -363,9 +323,9 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - Automatic Cleanup
 - Overlay Timing
 
-## 7. Menus
+## 6. Menus
 
-### 7.1 Edit Menu
+### 6.1 Edit Menu
 
 スコア入力画面から横に出てくるメニュー。
 
@@ -385,7 +345,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - チームプリセット読み込み
 - チームプリセット書き出し
 
-### 7.2 Player Menu
+### 6.2 Player Menu
 
 対戦選手表示オプションが有効な場合に使うメニュー。
 
@@ -406,7 +366,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 - 表裏に応じて色は攻撃側、守備側に入れ替わる。
 - 代打時は打順番号を `PH` と表示する。
 
-### 7.3 Global Settings
+### 6.3 Global Settings
 
 全体の設定画面で編集する内容。
 
@@ -417,7 +377,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 一時演出の表示秒数は、個別スコアボードの編集メニューには置かない。
 
-### 7.4 Viewer Property Panel
+### 6.4 Viewer Property Panel
 
 Viewer Pageで開く表示プロパティ用のパネル。
 
@@ -432,7 +392,7 @@ Viewer Pageで開く表示プロパティ用のパネル。
 
 このパネルの設定は端末ごとの見え方を調整するためのもので、試合状態には影響しない。
 
-### 7.5 Delete Confirmation Dialog
+### 6.5 Delete Confirmation Dialog
 
 手動削除時に表示する確認ダイアログ。
 
@@ -446,180 +406,23 @@ Viewer Pageで開く表示プロパティ用のパネル。
 - 確認後にのみ削除する。
 - 24時間アクセスなしの自動削除では表示しない。
 
-## 8. Needed File Structure
+## 7. Realtime Sync Design
 
-実装が進むにつれて作る想定のファイル構成。
-初期実装ではファイルをまとめてよく、機能追加に合わせて分割する（ビルド工程は持たない）。
-
-```text
-baseball-scoreboard/
-  docs/
-    scoreboard_design.md
-    data_model.md
-    operation_rules.md
-    button_list.md
-    user_guide.txt
-    design_plan.jpg           # レイアウト参考画像
-    design_claude_fable.jpg   # 採用デザイン案の画像
-  package.json                # "type": "module"、scripts(start/test)、依存はjimpのみ
-  jsconfig.json               # @ts-check によるエディタ型チェック（ビルドはしない）
-  .gitignore
-  src/
-    client/                   # ブラウザ用。ビルドせずESモジュールとしてそのまま配信
-      index.html
-      app.js                  # エントリ。ルーティング、状態同期(SSE)、再描画の起点
-      lib/
-        api.js                # fetchラッパと EventSource(SSE) クライアント
-        router.js             # ハッシュルーティング
-        viewerSettings.js     # 端末ごとの表示プロパティ(localStorage)と入出力
-        scoreboard/
-          scoreboardView.js   # インラインSVGのスコアボード描画（表示専用）
-          overlay.js          # HOME RUN / K などの一時演出オーバーレイ
-        pages/
-          homePage.js
-          viewerPage.js
-          controlListPage.js
-          scoreInputPage.js
-          settingsPage.js
-        menus/
-          editMenu.js
-          playerMenu.js
-      styles/
-        app.css               # 全体スタイル（規模に応じ scoreboard.css 等へ分割可）
-      fonts/                  # 自己ホストのWebフォント（同梱）
-    server/                   # ローカルサーバー（node:http）
-      index.mjs               # サーバ起動、静的配信、APIルーティング、SSE
-      lib/
-        store.js              # app.json の読み書き（アトミック書き込み）
-        api.js                # REST処理（boards / presets / settings / logo upload）
-        sse.js                # SSEクライアント管理と broadcast
-        cleanup.js            # 24時間アクセスなしの自動削除
-        imageService.js       # jimpによる256x256変換・形式チェック・透過保持・圧縮
-    shared/                   # クライアント/サーバー双方で使う定義とルール
-      scoringRules.mjs        # 試合状態と applyAction（サーバーが利用、単体テスト対象）
-      types.js                # JSDoc typedef（@ts-check で共有する型の形）
-  storage/                    # 実行時に生成。Git管理対象外
-    data/
-      app.json                # boards + presets + settings
-    uploads/
-      team-logos/             # 変換後の256x256ロゴ
-  tests/
-    scoringRules.test.mjs     # node:test
-    imageService.test.mjs
-    store.test.mjs
-    design_fable/             # スコアボードのデザインモックアップと生成スクリプト
-```
-
-### File Responsibilities
-
-`docs/`
-
-- `scoreboard_design.md` は、全体設計、画面構成、ファイル構造、実装順を置く。
-- `data_model.md` は、データ構造、保存対象、削除対象、設定値を置く。
-- `operation_rules.md` は、ボタン操作、状態変化、リアルタイム反映、自動削除のルールを置く。
-- `button_list.md` は、画面ごとに必要なボタンと操作項目の一覧を置く。
-- `user_guide.txt` は、コーディングに詳しくない人向けの起動、終了、基本操作の説明を置く。
-- `design_plan.jpg` はレイアウトの参考画像、`design_claude_fable.jpg` は採用デザイン案の画像。
-
-`src/client/`
-
-- ブラウザで動く画面一式。ビルドせず、ESモジュールとしてそのまま配信する。
-- `app.js` をエントリに、`lib/pages/` へ各ページ、`lib/menus/` へ編集・選手名メニューを置く。
-- `lib/scoreboard/` に表示専用のスコアボード描画（インラインSVG）を置く。操作ボタンは含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
-- `lib/api.js` にサーバー通信（fetchとSSE受信）をまとめる。
-- `lib/viewerSettings.js` に端末ごとの表示プロパティ（localStorage保存と入出力）を置く。
-- 操作による状態変更・戻る・進むはサーバー側の `shared/scoringRules.mjs` が正で、クライアントは操作を送って結果を再描画する。
-
-`src/server/`
-
-- ローカルサーバー、保存処理、リアルタイム通信を置く。
-- `index.mjs` は `node:http` でサーバーを起動し、静的ファイル配信・APIルーティング・SSEをまとめる。
-- `lib/store.js` は `app.json` の読み書きを、一時ファイル→リネームのアトミック書き込みで安全に行う。
-- `lib/sse.js` は接続中クライアントの管理と状態の broadcast を行う。
-- `lib/cleanup.js` は、24時間アクセスなしの自動削除を扱う。
-- `lib/imageService.js` は、jimpでロゴ画像の256x256変換、形式チェック（PNG/JPEG）、圧縮を扱う。透過（アルファチャンネル）を保持できる形式で保存し、スコアボード上で枠なしのままきれいに表示できるようにする。
-
-`src/shared/`
-
-- クライアントとサーバーの両方で使う定義やルールを置く。
-- `scoringRules.mjs` は試合状態と操作（applyAction）を持ち、サーバーが利用し、単体テストの対象にする。
-- `types.js` はJSDocのtypedefで、`@ts-check` で共有する型の形を定義する。
-
-`storage/`
-
-- 実行時に生成されるJSONデータ（`app.json`）とロゴ画像を置く。
-- Git管理対象から外す。
-
-## 9. Realtime Sync Design
-
-リアルタイム反映の詳細は `operation_rules.md` の `Realtime Sync` に記載する。
+リアルタイム反映の詳細は `operation.md` の `Realtime Sync` に記載する。
 反映はSSE（Server-Sent Events）で、サーバーから閲覧画面・操作画面へ配信する。
 親設計書では、操作画面の変更をサーバー経由で閲覧画面へ反映する方針だけを管理する。
 
-## 10. Persistence Rules
+## 8. Persistence Rules
 
-保存対象、削除対象、自動削除の詳細は `data_model.md` の `Persistence Summary` と `General Settings`、および `operation_rules.md` の `Automatic Cleanup` に記載する。
+保存対象、削除対象、自動削除の詳細は `data_model.md` の `Persistence Summary` と `General Settings`、および `operation.md` の `Automatic Cleanup` に記載する。
 親設計書では、アプリ終了後も必要な設定を保存し、スコアボード削除時の扱いを詳細ファイルへ委譲する方針だけを管理する。
 
-## 11. Implementation Order
-
-実装に進む場合の推奨順。
-
-1. プロジェクト雛形を作る。
-2. スコアボード表示だけを先に作る。
-3. ダミーデータでデザインを整える。
-4. スコア状態の型と操作ルールを作る。
-5. スコア入力画面を作る。
-6. 閲覧画面と操作画面をリアルタイム連携する。
-7. チームプリセットを保存できるようにする。
-8. ロゴアップロードと256x256変換を追加する。
-9. 選手名メニューと成績計算を追加する。
-10. 戻る、進むを追加する。
-11. 複数端末操作の競合処理を確認する。
-12. 複数スコアボード表示と削除を仕上げる。
-13. 自動削除設定を追加する。
-14. 削除確認を追加する。
-15. 配信用の背景色、拡大率、位置調整を仕上げる。
-16. 端末ごとの表示プロパティの入出力を追加する。
-17. 閲覧画面の完全非表示UIモードを将来追加できる余地を残す。
-
-## 12. Coding Rules
-
-実装時のルール。
-
-- Windows/Linuxの各環境で前提となる要件は、`user_guide.txt` にまとめる。
-- 依存関係や起動方法が変わった場合は、コードだけでなく `user_guide.txt` も更新する。
-- 前提要件は、コーディングに詳しくない人が別途ChatGPTなどに質問してインストール手順を確認できる粒度で書く。
-- 前提要件は、公式のインストール手順を実行すれば達成できる粒度で書く。
-- 公式手順を丸ごと転載する必要はない。
-- 例: Windows環境では、Node.jsとnpmがインストールされており、PATHが通っている必要がある。
-- `11. Implementation Order` の手順は一つずつ実行し、各手順後のテストに成功したらGitに内容を保存する。
-- OS依存のパス区切りやシェル固有の書き方をコードに直接埋め込まない。
-- Windows/Linux両対応を崩す依存を追加する場合は、代替案や導入理由を設計書に残す。
-- ビルド工程を持たず、`npm start` だけで起動できる状態を保つ。
-- 実行時の追加npm依存は最小限にする。新たに追加する場合は、純JavaScript製で環境依存が少ないものを優先し、理由を設計書に残す（例: 画像変換の jimp）。
-- 型はTypeScriptを導入せず、JSDoc注釈＋`// @ts-check` で確認する。
-- `app.json` への書き込みは、一時ファイルに書いてからリネームするアトミック書き込みにし、書き込み途中のクラッシュで壊れないようにする。
-
-## 13. Confirmed Decisions
-
-確定済みの詳細仕様は、重複管理を避けるため以下のファイルに集約する。
-
-- データ、保存、設定に関する決定: `data_model.md`
-- 操作、リアルタイム反映、自動削除に関する決定: `operation_rules.md`
-
-親設計書には、画面構成、見た目の方向性、ファイル構造、実装順のみを残す。
-
-## 14. Remaining Open Questions
-
-現時点ではなし。
-
-## 15. Design Notes
+## 9. Design Notes
 
 デザイン実装時の注意。
 
 - 得点を最も目立たせる。
-- 黒背景の中で、チームカラー、白文字、カウント表示が読みやすいようにする。
+- 黒基調（紺〜黒）の中で、チームカラー、白文字、カウント表示が読みやすいようにする。
 - 小さい配信画面でも読める文字サイズにする。
 - ボタン画面は操作ミスを防ぐため、種類ごとにまとまりを分ける。
 - 配信用Viewer Pageには余計な説明文を出さない。
