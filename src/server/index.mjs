@@ -1,7 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -92,6 +92,12 @@ async function handleApi(req, res, url) {
       return;
     }
     sendJson(res, 201, { logoPath: result.logoPath });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/uploads/unused-team-logos") {
+    const result = await deleteUnusedTeamLogos();
+    sendJson(res, 200, result);
     return;
   }
 
@@ -348,6 +354,53 @@ function publicState() {
     settings: state.settings,
     presets: state.presets
   };
+}
+
+async function deleteUnusedTeamLogos() {
+  await mkdir(teamLogoDir, { recursive: true });
+  const usedLogoPaths = collectUsedTeamLogoPaths();
+  const entries = await readdir(teamLogoDir, { withFileTypes: true });
+  const deletedLogoPaths = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const logoPath = `/uploads/team-logos/${entry.name}`;
+    if (usedLogoPaths.has(logoPath)) continue;
+
+    const targetPath = path.resolve(teamLogoDir, entry.name);
+    if (!isPathInsideDirectory(targetPath, teamLogoDir)) continue;
+
+    await unlink(targetPath);
+    deletedLogoPaths.push(logoPath);
+  }
+
+  return {
+    deletedCount: deletedLogoPaths.length,
+    deletedLogoPaths
+  };
+}
+
+function collectUsedTeamLogoPaths() {
+  const used = new Set();
+  for (const board of state.boards || []) {
+    for (const side of ["away", "home"]) {
+      addLocalTeamLogoPath(used, board.teamSettings?.[side]?.logoPath);
+    }
+  }
+  for (const preset of state.presets || []) {
+    addLocalTeamLogoPath(used, preset.logoPath);
+  }
+  return used;
+}
+
+function addLocalTeamLogoPath(target, logoPath) {
+  const value = String(logoPath || "");
+  if (value.startsWith("/uploads/team-logos/")) target.add(value);
+}
+
+function isPathInsideDirectory(targetPath, parentDir) {
+  const relative = path.relative(parentDir, targetPath);
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function createTeamPreset(values = {}) {

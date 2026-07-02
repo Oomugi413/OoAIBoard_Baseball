@@ -221,6 +221,7 @@ function renderSettings() {
         <label>自動削除までの時間 <input type="number" id="cleanup-hours" min="1" value="${settings.autoCleanupIdleHours || 24}"> 時間</label>
         <label>一時演出の表示秒数 <input type="number" id="overlay-seconds" min="1" value="${settings.overlayDisplaySeconds || 3}"> 秒</label>
         <button class="primary" id="save-settings">保存</button>
+        <button id="cleanup-unused-logos">スコアボード/プリセットで使われていないロゴを削除</button>
       </section>
       <section class="settings-panel">
         <h2>チームプリセット</h2>
@@ -233,6 +234,7 @@ function renderSettings() {
   `;
   bindNavigation();
   document.querySelector("#save-settings")?.addEventListener("click", saveSettings);
+  document.querySelector("#cleanup-unused-logos")?.addEventListener("click", cleanupUnusedLogos);
   bindSettingsPresets();
 }
 
@@ -1003,6 +1005,12 @@ async function saveSettings() {
   });
   state.settings = settings;
   render();
+}
+
+async function cleanupUnusedLogos() {
+  if (!confirm("スコアボード/プリセットで使われていないロゴを削除しますか？")) return;
+  const result = await api("/api/uploads/unused-team-logos", { method: "DELETE" });
+  alert(`${result.deletedCount || 0}件の未使用ロゴを削除しました。`);
 }
 
 function bindSettingsPresets() {
