@@ -37,7 +37,7 @@
 - スタイル: CSS（カスタムプロパティ、グラデーション、フィルター）。
 - フォント: 自己ホストのWebフォント（名前用のコンデンスド・ゴシック＋得点/カウント用の等幅数字）。CDNは使わず同梱する。
 - 一時演出のアニメーション: 単純な演出はCSS/SVGアニメーションで作る。演出を増やして表現を豊かにする場合は Lottie（JSON定義のアニメーション）を使う。
-- ロゴ画像変換: jimp（純JavaScript製の画像ライブラリ）。256x256変換・透過保持・圧縮に使う。
+- ロゴ画像変換: ブラウザ標準のCanvasで256x256へ変換してからアップロードする。透過PNGは透過を保持し、JPEGは白背景で圧縮する。
 - ロゴ保存: ローカルのアップロード用フォルダ（`storage/uploads/team-logos/`）に保存。
 
 理由:
@@ -47,7 +47,7 @@
 - データ量はボード数個＋プリセット＋設定でキロバイト級のため、JSONファイルで十分。アトミック書き込みでアプリ終了後も安全に保存できる。
 - スコアボードをSVGで描くと解像度に依存せず、配信解像度や端末ごとの拡大縮小でも文字と図形を鮮明に保てる（`scoreboard_design.md` 3.3 参照）。
 - リッチな演出のためのビルドやライブラリ（Lottie など）は禁止しない。ただし起動の簡単さ（`npm install` と `npm start`）とWindows/Linux両対応は守る。
-- jimp は純JavaScript製でネイティブビルドが不要なため、Windows/Linuxのどちらでもインストールに失敗しにくい。
+- ロゴ画像変換をブラウザ標準機能で行うため、画像変換用の追加npm依存が不要になり、Windows/Linuxの導入手順を増やさずに済む。
 
 見送った候補と理由（`3. Coding Rules` の方針に基づき記録する）:
 
@@ -55,7 +55,7 @@
 - Express: ルーティングと静的配信は `node:http` で足り、依存を1つ減らせる。
 - Socket.IO: 双方向通信もルーム管理も不要。SSEで要件を満たせ、依存を減らせる。
 - SQLite（better-sqlite3 等）: ネイティブモジュールで環境によりインストールに失敗する恐れがあり、非プログラマ運用の最大リスク。データ規模的にもJSONで足りる。将来データが増えた場合は、追加インストール不要でNodeに内蔵された `node:sqlite` へ移行できる余地を残す。
-- sharp（画像変換）: 高速だがネイティブバイナリ依存。256x256のロゴ変換では速度差は体感できないため、純JS製の jimp を優先する。
+- sharp / jimp（画像変換）: サーバー側での画像変換ライブラリは、現時点では導入しない。256x256のロゴ変換はブラウザCanvasで十分で、追加インストールを避けられるため。
 
 ## 2. Implementation Detail
 
@@ -75,7 +75,7 @@ baseball-scoreboard/
     user_guide.txt            # 起動・終了・基本操作
     design_plan.jpg           # レイアウト参考画像
     design_claude_fable.jpg   # 採用デザイン案の画像
-  package.json                # "type": "module"、scripts(start/test)、依存はjimpのみ
+  package.json                # "type": "module"、scripts(start/test)
   jsconfig.json               # @ts-check によるエディタ型チェック
   .gitignore
   src/
@@ -108,7 +108,7 @@ baseball-scoreboard/
         api.js                # REST処理（boards / presets / settings / logo upload）
         sse.js                # SSEクライアント管理と broadcast
         cleanup.js            # 24時間アクセスなしの自動削除
-        imageService.js       # jimpによる256x256変換・形式チェック・透過保持・圧縮
+        imageService.js       # 規模が大きくなった場合の画像処理分割先。現状は index.mjs でアップロード保存
     shared/                   # クライアント/サーバー双方で使う定義とルール
       scoringRules.mjs        # 試合状態と applyAction（サーバーが利用、単体テスト対象）
       types.js                # JSDoc typedef（@ts-check で共有する型の形）
@@ -119,7 +119,7 @@ baseball-scoreboard/
       team-logos/             # 変換後の256x256ロゴ
   tests/                      # testファイルであり、原則として読み取り専用。実際のファイルに変更するには大きすぎる変更のみ、ユーザーの指示に基づいて使用する
     scoringRules.test.mjs     # node:test
-    imageService.test.mjs
+    imageService.test.mjs     # 画像処理を分割した場合に追加
     store.test.mjs
     design_fable/             # スコアボードのデザインモックアップと生成スクリプト
 ```
@@ -128,7 +128,7 @@ baseball-scoreboard/
 
 - `docs/` は設計ファイル群。`rules.md`（本ファイル）にプロジェクト全体のルールとファイル構成、`scoreboard_design.md` に見た目、`operation.md` に実装したい機能と操作ルール、`data_model.md` にデータ構造を置く。
 - `src/client/` はブラウザで動く画面一式。`app.js` をエントリに、`lib/pages/` へ各ページ、`lib/menus/` へメニュー、`lib/scoreboard/` へ表示専用のスコアボード描画（インラインSVG）を置く。スコアボード描画は操作ボタンを含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
-- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、静的配信・APIルーティング・SSEをまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除、`lib/imageService.js` は jimp によるロゴ変換（256x256・PNG/JPEG判定・透過保持・圧縮）を扱う。
+- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、静的配信・APIルーティング・SSE・ロゴアップロード保存をまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除を扱う。
 - `src/shared/` はクライアント/サーバー双方で使う定義とルール。`scoringRules.mjs` は試合状態と操作（applyAction）を持ち、単体テストの対象にする。
 - `storage/` は実行時に生成されるJSONデータとロゴ画像。Git管理対象から外す。
 
@@ -145,7 +145,7 @@ baseball-scoreboard/
 5. [済] スコア入力画面を作る。
 6. [済] 閲覧画面と操作画面をリアルタイム連携する。（SSEで実装）
 7. [未] チームプリセットを保存できるようにする。
-8. [未] ロゴアップロードと256x256変換を追加する。（現状はロゴURLの文字列入力のみ）
+8. [済] ロゴアップロードと256x256変換を追加する。（PNG/JPEG選択、ブラウザCanvasによる256x256変換、サーバー保存、スコアボード反映を実装済み）
 9. [済] 選手名メニューと成績計算を追加する。（打者の編集、成績計算、ピッチャー追加、ピッチャー一覧編集を実装済み）
 10. [済] 戻る、進むを追加する。（キーボードショートカットは未実装）
 11. [未] 複数端末操作の競合処理を確認する。（後勝ちの方針は決定済みだが、確認作業は未実施）
@@ -162,7 +162,7 @@ baseball-scoreboard/
 
 - 起動は簡単なコマンド（`npm install` と `npm start`）で完結する状態を保つ。
 - ビルド工程やライブラリの追加は、スコアボードの表示・演出の質を高めるために必要な範囲で許容する。ただしWindows/Linux両対応と起動の簡単さを崩さない。追加時は理由を本ファイルに残す。
-- 実行時の追加npm依存は、必要な範囲にとどめる。新たに追加する場合は、純JavaScript製で環境依存が少ないものを優先し、理由を本ファイルに残す（例: 画像変換の jimp）。
+- 実行時の追加npm依存は、必要な範囲にとどめる。新たに追加する場合は、純JavaScript製で環境依存が少ないものを優先し、理由を本ファイルに残す。
 - 型はまず TypeScript を導入せず、JSDoc注釈＋`// @ts-check` で確認する。将来的な導入は妨げない。
 - `app.json` への書き込みは、一時ファイルに書いてからリネームするアトミック書き込みにし、書き込み途中のクラッシュで壊れないようにする。
 - OS依存のパス区切りやシェル固有の書き方をコードに直接埋め込まない。

@@ -15,10 +15,13 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const clientDir = path.join(rootDir, "src", "client");
 const storageDir = path.join(rootDir, "storage", "data");
+const uploadRootDir = path.join(rootDir, "storage", "uploads");
+const teamLogoDir = path.join(uploadRootDir, "team-logos");
 const dataFile = path.join(storageDir, "app.json");
 const DEFAULT_PORT = Number(process.env.PORT || 52582);
 const HOST = process.env.HOST || "0.0.0.0";
 const MAX_PORT_ATTEMPTS = 20;
+const MAX_LOGO_UPLOAD_BYTES = 750 * 1024;
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -78,6 +81,17 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/state") {
     sendJson(res, 200, publicState());
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/uploads/team-logo") {
+    const body = await readJsonBody(req);
+    const result = await saveTeamLogoUpload(body.dataUrl);
+    if (result.error) {
+      sendJson(res, 400, { error: result.error });
+      return;
+    }
+    sendJson(res, 201, { logoPath: result.logoPath });
     return;
   }
 
@@ -164,6 +178,18 @@ async function serveStatic(req, res, url) {
 
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === "/") pathname = "/index.html";
+  if (pathname.startsWith("/uploads/")) {
+    const relativeUploadPath = pathname.slice("/uploads/".length);
+    const uploadCandidate = path.normalize(path.join(uploadRootDir, relativeUploadPath));
+    if (!uploadCandidate.startsWith(uploadRootDir)) {
+      res.writeHead(403);
+      res.end();
+      return;
+    }
+    await serveFile(req, res, uploadCandidate);
+    return;
+  }
+
   const candidate = path.normalize(path.join(clientDir, pathname));
   if (!candidate.startsWith(clientDir)) {
     res.writeHead(403);
@@ -171,6 +197,10 @@ async function serveStatic(req, res, url) {
     return;
   }
 
+  await serveFile(req, res, candidate);
+}
+
+async function serveFile(req, res, candidate) {
   try {
     const fileStat = await stat(candidate);
     if (!fileStat.isFile()) throw new Error("not a file");
@@ -185,6 +215,44 @@ async function serveStatic(req, res, url) {
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Not found");
   }
+}
+
+async function saveTeamLogoUpload(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:(image\/png|image\/jpeg);base64,([a-zA-Z0-9+/=]+)$/);
+  if (!match) return { error: "PNGまたはJPEG画像を選択してください。" };
+
+  const mimeType = match[1];
+  const buffer = Buffer.from(match[2], "base64");
+  if (!buffer.length) return { error: "画像データが空です。" };
+  if (buffer.length > MAX_LOGO_UPLOAD_BYTES) return { error: "画像データが大きすぎます。" };
+  if (mimeType === "image/png" && !isPng(buffer)) return { error: "PNG画像として読み込めません。" };
+  if (mimeType === "image/jpeg" && !isJpeg(buffer)) return { error: "JPEG画像として読み込めません。" };
+
+  await mkdir(teamLogoDir, { recursive: true });
+  const ext = mimeType === "image/png" ? "png" : "jpg";
+  const fileName = `${randomUUID()}.${ext}`;
+  await writeFile(path.join(teamLogoDir, fileName), buffer);
+  return { logoPath: `/uploads/team-logos/${fileName}` };
+}
+
+function isPng(buffer) {
+  return buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a;
+}
+
+function isJpeg(buffer) {
+  return buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[buffer.length - 2] === 0xff &&
+    buffer[buffer.length - 1] === 0xd9;
 }
 
 function handleSse(req, res) {

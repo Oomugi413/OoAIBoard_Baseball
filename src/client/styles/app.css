@@ -372,6 +372,43 @@ fieldset {
   font-size: 14px;
 }
 
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.logo-upload-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: #374151;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logo-preview {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d6dde8;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.logo-preview:empty {
+  display: none;
+}
+
+.logo-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .check-row {
   display: flex;
   gap: 8px;

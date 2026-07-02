@@ -474,9 +474,19 @@ function teamEditHtml(side, team) {
       <label>略称 <input id="${side}-abbr" value="${escapeHtml(team.abbreviation)}"></label>
       <label>チーム色 <input type="color" id="${side}-color" value="${escapeHtml(team.teamColor)}"></label>
       <label>文字色 <input type="color" id="${side}-text" value="${escapeHtml(team.textColor)}"></label>
-      <label>ロゴURL <input id="${side}-logo" value="${escapeHtml(team.logoPath || "")}"></label>
+      <label>ロゴ画像 <input type="file" id="${side}-logo-file" accept="image/png,image/jpeg"></label>
+      <input type="hidden" id="${side}-logo" value="${escapeHtml(team.logoPath || "")}">
+      <div class="logo-upload-row">
+        <span id="${side}-logo-status">${team.logoPath ? "設定済み" : "未設定"}</span>
+        <button type="button" class="small" data-clear-logo="${side}">ロゴ削除</button>
+      </div>
+      <div class="logo-preview" id="${side}-logo-preview">${logoPreviewHtml(team.logoPath)}</div>
     </fieldset>
   `;
+}
+
+function logoPreviewHtml(logoPath) {
+  return logoPath ? `<img src="${escapeHtml(logoPath)}" alt="">` : "";
 }
 
 function playerMenuHtml(board) {
@@ -692,24 +702,116 @@ function resizeTransformFromPointer(handle, start, startVisualWidth, startRight,
 }
 
 function bindEditMenu(board) {
+  bindLogoInputs();
   document.querySelector("#save-edit-menu")?.addEventListener("click", async () => {
-    await action(board.id, "board:rename", { name: document.querySelector("#edit-board-name").value });
+    const boardName = document.querySelector("#edit-board-name").value;
+    const teamUpdates = {};
     for (const side of ["away", "home"]) {
-      await action(board.id, "team:update", {
-        side,
-        values: {
-          abbreviation: document.querySelector(`#${side}-abbr`).value,
-          teamColor: document.querySelector(`#${side}-color`).value,
-          textColor: document.querySelector(`#${side}-text`).value,
-          logoPath: document.querySelector(`#${side}-logo`).value
-        }
-      });
+      const logoPath = await resolveLogoPathForSave(side);
+      teamUpdates[side] = {
+        abbreviation: document.querySelector(`#${side}-abbr`).value,
+        teamColor: document.querySelector(`#${side}-color`).value,
+        textColor: document.querySelector(`#${side}-text`).value,
+        logoPath
+      };
     }
-    await action(board.id, "display:update", {
+    const displayOptions = {
       showAbs: document.querySelector("#show-abs").checked,
       showMatchup: document.querySelector("#show-matchup").checked
+    };
+
+    await action(board.id, "board:rename", { name: boardName });
+    for (const side of ["away", "home"]) {
+      await action(board.id, "team:update", { side, values: teamUpdates[side] });
+    }
+    await action(board.id, "display:update", displayOptions);
+  });
+}
+
+function bindLogoInputs() {
+  document.querySelectorAll("[id$='-logo-file']").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const side = input.id.replace(/-logo-file$/, "");
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await createLogoDataUrl(file);
+        const logoInput = document.querySelector(`#${side}-logo`);
+        logoInput.dataset.pendingLogo = dataUrl;
+        logoInput.value = "";
+        document.querySelector(`#${side}-logo-status`).textContent = "選択済み";
+        document.querySelector(`#${side}-logo-preview`).innerHTML = `<img src="${dataUrl}" alt="">`;
+      } catch (error) {
+        input.value = "";
+        alert(error.message || "ロゴ画像を読み込めませんでした。");
+      }
     });
   });
+  document.querySelectorAll("[data-clear-logo]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const side = button.dataset.clearLogo;
+      const logoInput = document.querySelector(`#${side}-logo`);
+      const fileInput = document.querySelector(`#${side}-logo-file`);
+      logoInput.value = "";
+      delete logoInput.dataset.pendingLogo;
+      if (fileInput) fileInput.value = "";
+      document.querySelector(`#${side}-logo-status`).textContent = "未設定";
+      document.querySelector(`#${side}-logo-preview`).innerHTML = "";
+    });
+  });
+}
+
+async function resolveLogoPathForSave(side) {
+  const logoInput = document.querySelector(`#${side}-logo`);
+  if (!logoInput?.dataset.pendingLogo) return logoInput?.value || "";
+  const result = await api("/api/uploads/team-logo", {
+    method: "POST",
+    body: JSON.stringify({ dataUrl: logoInput.dataset.pendingLogo })
+  });
+  logoInput.value = result.logoPath;
+  delete logoInput.dataset.pendingLogo;
+  return result.logoPath;
+}
+
+function createLogoDataUrl(file) {
+  const mimeType = detectLogoMimeType(file);
+  if (!mimeType) {
+    return Promise.reject(new Error("PNGまたはJPEG画像を選択してください。"));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
+    reader.addEventListener("load", () => {
+      const image = new Image();
+      image.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
+      image.addEventListener("load", () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("画像を変換できませんでした。"));
+          return;
+        }
+        if (mimeType === "image/jpeg") {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL(mimeType === "image/png" ? "image/png" : "image/jpeg", 0.86));
+      });
+      image.src = reader.result;
+    });
+    reader.readAsDataURL(file);
+  });
+}
+
+function detectLogoMimeType(file) {
+  if (["image/png", "image/jpeg"].includes(file.type)) return file.type;
+  const name = String(file.name || "").toLowerCase();
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  return "";
 }
 
 function bindPlayerMenu(board) {
