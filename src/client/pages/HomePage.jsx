@@ -40,7 +40,7 @@ export default function HomePage() {
             </Button>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-            画面は新しいUIへ移行中です。上のボタンは、移行が終わるまで従来の画面を開きます。
+            画面は新しいUIへ移行中です。移行が完了していない画面は、従来の画面が開きます。
           </Typography>
         </CardContent>
       </Card>

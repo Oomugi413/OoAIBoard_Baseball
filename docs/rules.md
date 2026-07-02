@@ -170,7 +170,7 @@ baseball-scoreboard/
 1. [済] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更し、旧クライアントを `/legacy` で併存配信する。Home Pageだけ移植して起動確認する。（React 19 / MUI 9 / Vite 8 を導入。旧クライアントは `src/client_legacy/` へ移動。単体テスト、ビルド、新Home・旧画面・API・ロゴ配信の動作確認済み）
 2. [済] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。（`api/client.js`・`api/useServerState.js`・`ConfirmDialog`・`TopBar`・`LegacyRedirect` を追加し、react-router-dom を導入。未移行ルートは `/legacy` へ自動リダイレクト。Homeにボード数のライブ表示を付け、リロードなしのSSE反映・リダイレクト・不明ルートのHome復帰をヘッドレスブラウザで確認済み）
 3. [済] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。（`components/scoreboard/ScoreboardView.jsx` を追加。座標・配色・グラデーション・フィルターを1:1移植し、`svgId` でボードごとにgradient/filter idを分離。CSSは `styles/scoreboard.css` に切り出し。検証用に一時ページ `/preview`（`ScoreboardPreviewPage.jsx`）を追加し、旧クライアント `/legacy` と並べてスクリーンショット比較、得点・ランナー・カウント・アウト・ABS・一時演出オーバーレイの一致を確認済み。`/preview` は手順4以降の実ページで置き換わるまでの暫定検証用）
-4. [未] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。
+4. [済] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。（`pages/ControlListPage.jsx` を追加し `/control` ルートを差し替え。`/control/:boardId` は手順5まで旧画面へのリダイレクトを維持。一覧は視覚プレビューなしの対戦テキスト表示、名称変更はローカル下書き＋blur/Enter保存でSSE更新と衝突しない設計、削除は ConfirmDialog（ボード名＋消えるデータの警告）。作成→遷移・名称変更・削除・SSEライブ反映を実ブラウザ操作で確認済み）
 5. [未] Score Input Page の操作ボタン群を移植する。操作ミスを防ぐグループ分けを保つ。
 6. [未] 編集メニューを MUI Drawer のオーバーレイとして再実装する。閉じるボタンを付け、パソコンでは操作ボタンの上に重ねて表示する。フォームを状態管理に載せ替え、「プリセット保存で既存設定がリセットされる」不具合をここで根治する。あわせて、チーム略称テキストの拡大率設定を編集メニューに追加する。
 7. [未] 選手名メニューを MUI Drawer のオーバーレイとして再実装する。先攻/後攻のタブ、打者1-9番、ピッチャー追加・一覧編集。

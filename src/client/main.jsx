@@ -6,6 +6,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { theme } from "./theme.js";
 import { ServerStateProvider } from "./api/useServerState.js";
 import HomePage from "./pages/HomePage.jsx";
+import ControlListPage from "./pages/ControlListPage.jsx";
 import LegacyRedirect from "./components/common/LegacyRedirect.jsx";
 import ScoreboardPreviewPage from "./pages/ScoreboardPreviewPage.jsx";
 import "./styles/scoreboard.css";
@@ -20,7 +21,7 @@ createRoot(document.getElementById("root")).render(
             <Route path="/" element={<HomePage />} />
             <Route path="/preview" element={<ScoreboardPreviewPage />} />
             <Route path="/viewer" element={<LegacyRedirect to="/legacy/#/viewer" />} />
-            <Route path="/control" element={<LegacyRedirect to="/legacy/#/control" />} />
+            <Route path="/control" element={<ControlListPage />} />
             <Route
               path="/control/:boardId"
               element={
