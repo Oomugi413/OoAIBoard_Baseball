@@ -1,5 +1,9 @@
 const app = document.querySelector("#app");
 const viewerSettingsKey = "baseball-scoreboard.viewer";
+const DEFAULT_BOARD_WIDTH = 520;
+const BOARD_ASPECT_RATIO = 1200 / 560;
+const MIN_BOARD_SCALE = 25;
+const MAX_BOARD_SCALE = 300;
 
 let state = { boards: [], settings: {}, presets: [] };
 let selectedBoardId = null;
@@ -62,33 +66,35 @@ function renderHome() {
 function renderViewer() {
   const boards = state.boards || [];
   selectedViewerBoardId = resolveViewerBoardId(boards);
-  const selectedPosition = selectedViewerBoardId ? getBoardPosition(selectedViewerBoardId) : { x: 0, y: 0 };
+  const selectedTransform = selectedViewerBoardId ? getBoardTransform(selectedViewerBoardId) : defaultBoardTransform();
   document.body.style.background = viewerSettings.backgroundColor;
   app.innerHTML = `
     ${topBar("スコアボードを見る")}
     <main class="viewer-page">
       <section class="viewer-toolbar">
         <label>背景色 <input type="color" id="viewer-bg" value="${escapeHtml(viewerSettings.backgroundColor)}"></label>
-        <label>拡大率 <input type="range" id="viewer-scale" min="50" max="200" value="${viewerSettings.scale}"><span id="viewer-scale-value">${viewerSettings.scale}%</span></label>
-        <label>サイズ <input type="range" id="viewer-size" min="260" max="900" value="${viewerSettings.boardWidth}"><span id="viewer-size-value">${viewerSettings.boardWidth}px</span></label>
         <label>位置対象
           <select id="viewer-position-board" ${boards.length ? "" : "disabled"}>
             ${boards.map((board) => `<option value="${escapeHtml(board.id)}" ${board.id === selectedViewerBoardId ? "selected" : ""}>${escapeHtml(board.name)}</option>`).join("")}
           </select>
         </label>
-        <label>位置X <input type="number" id="viewer-x" value="${selectedPosition.x}" ${boards.length ? "" : "disabled"}></label>
-        <label>位置Y <input type="number" id="viewer-y" value="${selectedPosition.y}" ${boards.length ? "" : "disabled"}></label>
-        <button id="viewer-position-reset" ${boards.length ? "" : "disabled"}>位置リセット</button>
+        <label>拡大率 <input type="range" id="viewer-scale" min="${MIN_BOARD_SCALE}" max="${MAX_BOARD_SCALE}" value="${selectedTransform.scale}" ${boards.length ? "" : "disabled"}><span id="viewer-scale-value">${selectedTransform.scale}%</span></label>
+        <label>拡大率(%) <input type="number" id="viewer-scale-input" min="${MIN_BOARD_SCALE}" max="${MAX_BOARD_SCALE}" value="${selectedTransform.scale}" ${boards.length ? "" : "disabled"}></label>
+        <label>サイズ(px) <input type="number" id="viewer-size-input" min="${scaleToBoardSize(MIN_BOARD_SCALE)}" max="${scaleToBoardSize(MAX_BOARD_SCALE)}" value="${scaleToBoardSize(selectedTransform.scale)}" ${boards.length ? "" : "disabled"}></label>
+        <label>位置X <input type="number" id="viewer-x" value="${selectedTransform.x}" ${boards.length ? "" : "disabled"}></label>
+        <label>位置Y <input type="number" id="viewer-y" value="${selectedTransform.y}" ${boards.length ? "" : "disabled"}></label>
+        <button id="viewer-position-reset" ${boards.length ? "" : "disabled"}>表示リセット</button>
         <button id="viewer-export">表示設定を書き出し</button>
         <button id="viewer-import">表示設定を読み込み</button>
       </section>
-      <section class="viewer-grid" style="--viewer-scale:${viewerSettings.scale / 100}; --board-width:${viewerSettings.boardWidth}px;">
+      <section class="viewer-grid">
         ${boards.length ? boards.map(viewerBoardHtml).join("") : emptyState("稼働中のスコアボードがありません。")}
       </section>
     </main>
   `;
   bindNavigation();
   bindViewerToolbar();
+  bindViewerBoardInteractions();
 }
 
 function renderControlList() {
@@ -542,7 +548,8 @@ function bindNavigation() {
 function bindViewerToolbar() {
   const bg = document.querySelector("#viewer-bg");
   const scale = document.querySelector("#viewer-scale");
-  const size = document.querySelector("#viewer-size");
+  const scaleInput = document.querySelector("#viewer-scale-input");
+  const sizeInput = document.querySelector("#viewer-size-input");
   const boardSelect = document.querySelector("#viewer-position-board");
   const posX = document.querySelector("#viewer-x");
   const posY = document.querySelector("#viewer-y");
@@ -551,21 +558,23 @@ function bindViewerToolbar() {
     document.body.style.background = viewerSettings.backgroundColor;
   });
   scale?.addEventListener("input", () => {
-    viewerSettings = persistViewerSettings({ scale: Number(scale.value) });
-    applyViewerLayoutSettings();
+    updateSelectedBoardTransform({ scale: Number(scale.value) });
   });
-  size?.addEventListener("input", () => {
-    viewerSettings = persistViewerSettings({ boardWidth: Number(size.value) });
-    applyViewerLayoutSettings();
+  scaleInput?.addEventListener("input", () => {
+    if (scaleInput.value.trim() === "") return;
+    updateSelectedBoardTransform({ scale: Number(scaleInput.value) });
+  });
+  sizeInput?.addEventListener("input", () => {
+    if (sizeInput.value.trim() === "") return;
+    updateSelectedBoardTransform({ scale: boardSizeToScale(Number(sizeInput.value)) });
   });
   boardSelect?.addEventListener("change", () => {
-    selectedViewerBoardId = boardSelect.value;
-    syncViewerPositionInputs();
+    selectViewerBoard(boardSelect.value);
   });
-  posX?.addEventListener("input", () => updateSelectedBoardPosition({ x: Number(posX.value) }));
-  posY?.addEventListener("input", () => updateSelectedBoardPosition({ y: Number(posY.value) }));
+  posX?.addEventListener("input", () => updateSelectedBoardTransform({ x: Number(posX.value) }));
+  posY?.addEventListener("input", () => updateSelectedBoardTransform({ y: Number(posY.value) }));
   document.querySelector("#viewer-position-reset")?.addEventListener("click", () => {
-    resetSelectedBoardPosition();
+    resetSelectedBoardTransform();
   });
   document.querySelector("#viewer-export")?.addEventListener("click", () => {
     navigator.clipboard?.writeText(JSON.stringify(viewerSettings, null, 2));
@@ -580,6 +589,91 @@ function bindViewerToolbar() {
       alert("読み込めませんでした。");
     }
   });
+}
+
+function bindViewerBoardInteractions() {
+  document.querySelectorAll("[data-viewer-board]").forEach((board) => {
+    board.addEventListener("pointerdown", startViewerBoardPointer);
+  });
+}
+
+function startViewerBoardPointer(event) {
+  if (event.button !== 0) return;
+  const boardElement = event.currentTarget;
+  const boardId = boardElement.dataset.viewerBoard;
+  const resizeHandle = resolveViewerResizeHandle(event, boardElement);
+  const start = getBoardTransform(boardId);
+  const startVisualWidth = scaleToBoardSize(start.scale);
+  const startVisualHeight = startVisualWidth / BOARD_ASPECT_RATIO;
+  const startRight = start.x + startVisualWidth;
+  const startBottom = start.y + startVisualHeight;
+  const startPointer = { x: event.clientX, y: event.clientY };
+
+  event.preventDefault();
+  selectViewerBoard(boardId);
+  boardElement.setPointerCapture(event.pointerId);
+
+  const onMove = (moveEvent) => {
+    const dx = moveEvent.clientX - startPointer.x;
+    const dy = moveEvent.clientY - startPointer.y;
+    if (resizeHandle) {
+      setBoardTransform(boardId, resizeTransformFromPointer(resizeHandle, start, startVisualWidth, startRight, startBottom, dx, dy));
+    } else {
+      setBoardTransform(boardId, {
+        x: Math.round(start.x + dx),
+        y: Math.round(start.y + dy),
+        scale: start.scale
+      });
+    }
+  };
+
+  const onEnd = () => {
+    boardElement.removeEventListener("pointermove", onMove);
+    boardElement.removeEventListener("pointerup", onEnd);
+    boardElement.removeEventListener("pointercancel", onEnd);
+  };
+
+  boardElement.addEventListener("pointermove", onMove);
+  boardElement.addEventListener("pointerup", onEnd);
+  boardElement.addEventListener("pointercancel", onEnd);
+}
+
+function resolveViewerResizeHandle(event, boardElement) {
+  const explicitHandle = event.target instanceof Element
+    ? event.target.closest("[data-resize-handle]")?.dataset.resizeHandle
+    : "";
+  if (explicitHandle) return explicitHandle;
+
+  const rect = boardElement.getBoundingClientRect();
+  const edgeSize = 18;
+  const nearLeft = event.clientX - rect.left <= edgeSize;
+  const nearRight = rect.right - event.clientX <= edgeSize;
+  const nearTop = event.clientY - rect.top <= edgeSize;
+  const nearBottom = rect.bottom - event.clientY <= edgeSize;
+
+  if (nearTop && nearLeft) return "nw";
+  if (nearTop && nearRight) return "ne";
+  if (nearBottom && nearLeft) return "sw";
+  if (nearBottom && nearRight) return "se";
+  if (nearTop) return "n";
+  if (nearRight) return "e";
+  if (nearBottom) return "s";
+  if (nearLeft) return "w";
+  return "";
+}
+
+function resizeTransformFromPointer(handle, start, startVisualWidth, startRight, startBottom, dx, dy) {
+  const horizontalDelta = handle.includes("e") ? dx : handle.includes("w") ? -dx : 0;
+  const verticalDelta = handle.includes("s") ? dy * BOARD_ASPECT_RATIO : handle.includes("n") ? -dy * BOARD_ASPECT_RATIO : 0;
+  const widthDelta = Math.abs(horizontalDelta) >= Math.abs(verticalDelta) ? horizontalDelta : verticalDelta;
+  const scale = clampScale(((startVisualWidth + widthDelta) / DEFAULT_BOARD_WIDTH) * 100);
+  const nextWidth = scaleToBoardSize(scale);
+  const nextHeight = nextWidth / BOARD_ASPECT_RATIO;
+  return {
+    x: handle.includes("w") ? Math.round(startRight - nextWidth) : start.x,
+    y: handle.includes("n") ? Math.round(startBottom - nextHeight) : start.y,
+    scale
+  };
 }
 
 function bindEditMenu(board) {
@@ -684,12 +778,20 @@ function emptyState(message) {
 }
 
 function viewerBoardHtml(board) {
-  const position = getBoardPosition(board.id);
+  const transform = getBoardTransform(board.id);
+  const selectedClass = board.id === selectedViewerBoardId ? " selected" : "";
   return `
-    <div class="viewer-board" data-viewer-board="${escapeHtml(board.id)}" style="--viewer-x:${position.x}px; --viewer-y:${position.y}px;">
+    <div class="viewer-board${selectedClass}" data-viewer-board="${escapeHtml(board.id)}" style="--viewer-x:${transform.x}px; --viewer-y:${transform.y}px; --viewer-scale:${transform.scale / 100}; --viewer-z:${getBoardZIndex(board.id)}; --board-width:${DEFAULT_BOARD_WIDTH}px;">
+      ${resizeHandlesHtml()}
       ${scoreboardHtml(board)}
     </div>
   `;
+}
+
+function resizeHandlesHtml() {
+  return ["n", "e", "s", "w", "ne", "se", "sw", "nw"]
+    .map((handle) => `<span class="viewer-resize-handle ${handle}" data-resize-handle="${handle}"></span>`)
+    .join("");
 }
 
 function updateViewerSettings(next) {
@@ -698,25 +800,19 @@ function updateViewerSettings(next) {
 }
 
 function persistViewerSettings(next) {
-  const updated = {
+  const updated = normalizeViewerSettings({
     ...viewerSettings,
     ...next
-  };
+  });
   localStorage.setItem(viewerSettingsKey, JSON.stringify(updated));
   return updated;
 }
 
 function loadViewerSettings() {
   try {
-    return {
-      backgroundColor: "#ffffff",
-      scale: 100,
-      boardWidth: 520,
-      boardPositions: {},
-      ...JSON.parse(localStorage.getItem(viewerSettingsKey) || "{}")
-    };
+    return normalizeViewerSettings(JSON.parse(localStorage.getItem(viewerSettingsKey) || "{}"));
   } catch {
-    return { backgroundColor: "#ffffff", scale: 100, boardWidth: 520, boardPositions: {} };
+    return defaultViewerSettings();
   }
 }
 
@@ -728,63 +824,140 @@ function resolveViewerBoardId(boards) {
   return boards[0].id;
 }
 
-function getBoardPosition(boardId) {
-  const saved = viewerSettings.boardPositions?.[boardId] || {};
+function updateSelectedBoardTransform(next) {
+  if (!selectedViewerBoardId) return;
+  setBoardTransform(selectedViewerBoardId, next);
+}
+
+function resetSelectedBoardTransform() {
+  if (!selectedViewerBoardId) return;
+  setBoardTransform(selectedViewerBoardId, defaultBoardTransform());
+}
+
+function selectViewerBoard(boardId) {
+  selectedViewerBoardId = boardId;
+  document.querySelectorAll("[data-viewer-board]").forEach((board) => {
+    board.classList.toggle("selected", board.dataset.viewerBoard === boardId);
+  });
+  const boardSelect = document.querySelector("#viewer-position-board");
+  if (boardSelect) boardSelect.value = boardId;
+  syncViewerTransformInputs();
+}
+
+function syncViewerTransformInputs() {
+  const transform = selectedViewerBoardId ? getBoardTransform(selectedViewerBoardId) : defaultBoardTransform();
+  const scale = Math.round(transform.scale);
+  const posX = document.querySelector("#viewer-x");
+  const posY = document.querySelector("#viewer-y");
+  const scaleRange = document.querySelector("#viewer-scale");
+  const scaleInput = document.querySelector("#viewer-scale-input");
+  const scaleValue = document.querySelector("#viewer-scale-value");
+  const sizeInput = document.querySelector("#viewer-size-input");
+  if (posX) posX.value = String(Math.round(transform.x));
+  if (posY) posY.value = String(Math.round(transform.y));
+  if (scaleRange) scaleRange.value = String(scale);
+  if (scaleInput) scaleInput.value = String(scale);
+  if (scaleValue) scaleValue.textContent = `${scale}%`;
+  if (sizeInput) sizeInput.value = String(scaleToBoardSize(scale));
+}
+
+function applyBoardTransform(boardId) {
+  const transform = getBoardTransform(boardId);
+  const element = document.querySelector(`[data-viewer-board="${cssEscape(boardId)}"]`);
+  element?.style.setProperty("--viewer-x", `${transform.x}px`);
+  element?.style.setProperty("--viewer-y", `${transform.y}px`);
+  element?.style.setProperty("--viewer-scale", String(transform.scale / 100));
+  element?.style.setProperty("--viewer-z", String(getBoardZIndex(boardId)));
+  if (boardId === selectedViewerBoardId) syncViewerTransformInputs();
+}
+
+function applyViewerStackOrder() {
+  document.querySelectorAll("[data-viewer-board]").forEach((element) => {
+    element.style.setProperty("--viewer-z", String(getBoardZIndex(element.dataset.viewerBoard)));
+  });
+}
+
+function setBoardTransform(boardId, next) {
+  const current = getBoardTransform(boardId);
+  const transform = {
+    x: Number.isFinite(next.x) ? next.x : current.x,
+    y: Number.isFinite(next.y) ? next.y : current.y,
+    scale: clampScale(Number.isFinite(next.scale) ? next.scale : current.scale)
+  };
+  viewerSettings = persistViewerSettings({
+    boardPositions: {
+      ...(viewerSettings.boardPositions || {}),
+      [boardId]: { x: transform.x, y: transform.y }
+    },
+    boardScales: {
+      ...(viewerSettings.boardScales || {}),
+      [boardId]: transform.scale
+    },
+    boardStackOrder: bumpBoardStackOrder(boardId)
+  });
+  applyBoardTransform(boardId);
+  applyViewerStackOrder();
+}
+
+function getBoardTransform(boardId) {
+  const position = viewerSettings.boardPositions?.[boardId] || {};
   return {
-    x: numberOrDefault(saved.x, 0),
-    y: numberOrDefault(saved.y, 0)
+    x: numberOrDefault(position.x, 0),
+    y: numberOrDefault(position.y, 0),
+    scale: getBoardScale(boardId)
   };
 }
 
-function updateSelectedBoardPosition(next) {
-  if (!selectedViewerBoardId) return;
-  const current = getBoardPosition(selectedViewerBoardId);
-  const x = Number.isFinite(next.x) ? next.x : current.x;
-  const y = Number.isFinite(next.y) ? next.y : current.y;
-  viewerSettings = persistViewerSettings({
-    boardPositions: {
-      ...(viewerSettings.boardPositions || {}),
-      [selectedViewerBoardId]: { x, y }
-    }
-  });
-  applyBoardPosition(selectedViewerBoardId);
+function getBoardScale(boardId) {
+  return clampScale(numberOrDefault(viewerSettings.boardScales?.[boardId], viewerSettings.defaultScale));
 }
 
-function resetSelectedBoardPosition() {
-  if (!selectedViewerBoardId) return;
-  viewerSettings = persistViewerSettings({
-    boardPositions: {
-      ...(viewerSettings.boardPositions || {}),
-      [selectedViewerBoardId]: { x: 0, y: 0 }
-    }
-  });
-  syncViewerPositionInputs();
-  applyBoardPosition(selectedViewerBoardId);
+function defaultBoardTransform() {
+  return { x: 0, y: 0, scale: viewerSettings.defaultScale || 100 };
 }
 
-function syncViewerPositionInputs() {
-  const position = selectedViewerBoardId ? getBoardPosition(selectedViewerBoardId) : { x: 0, y: 0 };
-  const posX = document.querySelector("#viewer-x");
-  const posY = document.querySelector("#viewer-y");
-  if (posX) posX.value = String(position.x);
-  if (posY) posY.value = String(position.y);
+function defaultViewerSettings() {
+  return {
+    backgroundColor: "#ffffff",
+    defaultScale: 100,
+    boardPositions: {},
+    boardScales: {},
+    boardStackOrder: []
+  };
 }
 
-function applyBoardPosition(boardId) {
-  const position = getBoardPosition(boardId);
-  const element = document.querySelector(`[data-viewer-board="${cssEscape(boardId)}"]`);
-  element?.style.setProperty("--viewer-x", `${position.x}px`);
-  element?.style.setProperty("--viewer-y", `${position.y}px`);
+function normalizeViewerSettings(raw) {
+  const legacyScale = numberOrDefault(raw?.scale, 100);
+  const legacyWidth = numberOrDefault(raw?.boardWidth, DEFAULT_BOARD_WIDTH);
+  const migratedScale = clampScale(Math.round((legacyScale * legacyWidth) / DEFAULT_BOARD_WIDTH));
+  return {
+    backgroundColor: String(raw?.backgroundColor || "#ffffff"),
+    defaultScale: clampScale(numberOrDefault(raw?.defaultScale, migratedScale)),
+    boardPositions: raw?.boardPositions && typeof raw.boardPositions === "object" ? raw.boardPositions : {},
+    boardScales: raw?.boardScales && typeof raw.boardScales === "object" ? raw.boardScales : {},
+    boardStackOrder: Array.isArray(raw?.boardStackOrder) ? raw.boardStackOrder.map(String) : []
+  };
 }
 
-function applyViewerLayoutSettings() {
-  const grid = document.querySelector(".viewer-grid");
-  grid?.style.setProperty("--viewer-scale", String(viewerSettings.scale / 100));
-  grid?.style.setProperty("--board-width", `${viewerSettings.boardWidth}px`);
-  const scaleValue = document.querySelector("#viewer-scale-value");
-  const sizeValue = document.querySelector("#viewer-size-value");
-  if (scaleValue) scaleValue.textContent = `${viewerSettings.scale}%`;
-  if (sizeValue) sizeValue.textContent = `${viewerSettings.boardWidth}px`;
+function bumpBoardStackOrder(boardId) {
+  return [...(viewerSettings.boardStackOrder || []).filter((id) => id !== boardId), boardId];
+}
+
+function getBoardZIndex(boardId) {
+  const index = (viewerSettings.boardStackOrder || []).indexOf(boardId);
+  return index === -1 ? 1 : index + 2;
+}
+
+function scaleToBoardSize(scale) {
+  return Math.round((DEFAULT_BOARD_WIDTH * clampScale(scale)) / 100);
+}
+
+function boardSizeToScale(size) {
+  return (numberOrDefault(size, DEFAULT_BOARD_WIDTH) / DEFAULT_BOARD_WIDTH) * 100;
+}
+
+function clampScale(scale) {
+  return Math.max(MIN_BOARD_SCALE, Math.min(MAX_BOARD_SCALE, numberOrDefault(scale, 100)));
 }
 
 function currentBatter(board) {

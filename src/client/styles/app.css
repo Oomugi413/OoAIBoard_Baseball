@@ -157,10 +157,90 @@ fieldset {
 }
 
 .viewer-board {
+  position: relative;
+  z-index: var(--viewer-z, 1);
   width: var(--board-width);
   transform: translate(var(--viewer-x, 0), var(--viewer-y, 0)) scale(var(--viewer-scale));
   transform-origin: top left;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
   will-change: transform;
+}
+
+.viewer-board.selected .scoreboard {
+  outline: 2px solid rgba(56, 189, 248, 0.9);
+  outline-offset: 4px;
+}
+
+.viewer-resize-handle {
+  position: absolute;
+  z-index: 15;
+  background: transparent;
+}
+
+.viewer-resize-handle.n,
+.viewer-resize-handle.s {
+  right: 14px;
+  left: 14px;
+  height: 14px;
+  cursor: ns-resize;
+}
+
+.viewer-resize-handle.e,
+.viewer-resize-handle.w {
+  top: 14px;
+  bottom: 14px;
+  width: 14px;
+  cursor: ew-resize;
+}
+
+.viewer-resize-handle.n {
+  top: -7px;
+}
+
+.viewer-resize-handle.e {
+  right: -7px;
+}
+
+.viewer-resize-handle.s {
+  bottom: -7px;
+}
+
+.viewer-resize-handle.w {
+  left: -7px;
+}
+
+.viewer-resize-handle.ne,
+.viewer-resize-handle.se,
+.viewer-resize-handle.sw,
+.viewer-resize-handle.nw {
+  width: 22px;
+  height: 22px;
+}
+
+.viewer-resize-handle.ne {
+  top: -9px;
+  right: -9px;
+  cursor: nesw-resize;
+}
+
+.viewer-resize-handle.se {
+  right: -9px;
+  bottom: -9px;
+  cursor: nwse-resize;
+}
+
+.viewer-resize-handle.sw {
+  bottom: -9px;
+  left: -9px;
+  cursor: nesw-resize;
+}
+
+.viewer-resize-handle.nw {
+  top: -9px;
+  left: -9px;
+  cursor: nwse-resize;
 }
 
 .board-list {
