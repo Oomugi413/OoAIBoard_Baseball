@@ -8,6 +8,8 @@ import { ServerStateProvider } from "./api/useServerState.js";
 import HomePage from "./pages/HomePage.jsx";
 import ControlListPage from "./pages/ControlListPage.jsx";
 import ScoreInputPage from "./pages/ScoreInputPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
+import PresetReorderPage from "./pages/PresetReorderPage.jsx";
 import LegacyRedirect from "./components/common/LegacyRedirect.jsx";
 import ScoreboardPreviewPage from "./pages/ScoreboardPreviewPage.jsx";
 import "./styles/scoreboard.css";
@@ -24,11 +26,8 @@ createRoot(document.getElementById("root")).render(
             <Route path="/viewer" element={<LegacyRedirect to="/legacy/#/viewer" />} />
             <Route path="/control" element={<ControlListPage />} />
             <Route path="/control/:boardId" element={<ScoreInputPage />} />
-            <Route path="/settings" element={<LegacyRedirect to="/legacy/#/settings" />} />
-            <Route
-              path="/settings/presets/reorder"
-              element={<LegacyRedirect to="/legacy/#/settings/presets/reorder" />}
-            />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/presets/reorder" element={<PresetReorderPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </HashRouter>

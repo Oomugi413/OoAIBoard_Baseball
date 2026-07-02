@@ -145,6 +145,8 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 ### 2.5 Settings Page
 
 アプリ全体の設定画面。
+React版では、全体設定とチームプリセット編集を同じ `/settings` 画面に置く。
+プリセット編集はカード形式で表示し、各カードの入力内容は保存ボタンを押すまで保持する。
 
 主な機能:
 
@@ -161,6 +163,7 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 想定URL:
 
 - `/settings`
+- `/settings/presets/reorder`
 
 ## 3. Scoreboard Visual Design
 
