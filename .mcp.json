@@ -2,8 +2,10 @@
   "mcpServers": {
     "codex": {
       "type": "stdio",
-      "command": "codex",
-      "args": ["mcp-server"]
+      "command": "C:\\Users\\riyok\\AppData\\Local\\Programs\\Codex\\codex.exe",
+      "args": ["mcp-server"],
+      "env": {},
+      "timeout": 600000
     }
   }
 }

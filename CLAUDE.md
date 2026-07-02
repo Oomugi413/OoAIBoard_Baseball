@@ -16,6 +16,7 @@ Do not delegate:
 - trivial 1-2 line changes
 - unclear root-cause analysis
 - security-sensitive or destructive operations
+- サブエージェントとして起動された場合は自分で実装し、さらに委譲しない
 
 When delegating, give the subagent:
 - exact files or directories to inspect
