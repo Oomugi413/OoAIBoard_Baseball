@@ -13,7 +13,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
-const clientDir = path.join(rootDir, "src", "client");
+const distDir = path.join(rootDir, "dist");
+const legacyClientDir = path.join(rootDir, "src", "client_legacy");
 const storageDir = path.join(rootDir, "storage", "data");
 const uploadRootDir = path.join(rootDir, "storage", "uploads");
 const teamLogoDir = path.join(uploadRootDir, "team-logos");
@@ -31,7 +32,10 @@ const mimeTypes = new Map([
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
   [".png", "image/png"],
-  [".svg", "image/svg+xml"]
+  [".svg", "image/svg+xml"],
+  [".ico", "image/x-icon"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"]
 ]);
 
 const sseClients = new Set();
@@ -234,7 +238,6 @@ async function serveStatic(req, res, url) {
   }
 
   let pathname = decodeURIComponent(url.pathname);
-  if (pathname === "/") pathname = "/index.html";
   if (pathname.startsWith("/uploads/")) {
     const relativeUploadPath = pathname.slice("/uploads/".length);
     const uploadCandidate = path.normalize(path.join(uploadRootDir, relativeUploadPath));
@@ -247,11 +250,41 @@ async function serveStatic(req, res, url) {
     return;
   }
 
-  const candidate = path.normalize(path.join(clientDir, pathname));
-  if (!candidate.startsWith(clientDir)) {
+  // React移行中は、旧クライアントを /legacy で併存配信する（第2期の手順10で削除予定）。
+  if (pathname === "/legacy") {
+    res.writeHead(302, { Location: "/legacy/" });
+    res.end();
+    return;
+  }
+  if (pathname.startsWith("/legacy/")) {
+    let legacyPath = pathname.slice("/legacy".length);
+    if (legacyPath === "/") legacyPath = "/index.html";
+    const legacyCandidate = path.normalize(path.join(legacyClientDir, legacyPath));
+    if (!legacyCandidate.startsWith(legacyClientDir)) {
+      res.writeHead(403);
+      res.end();
+      return;
+    }
+    await serveFile(req, res, legacyCandidate);
+    return;
+  }
+
+  if (pathname === "/") pathname = "/index.html";
+  const candidate = path.normalize(path.join(distDir, pathname));
+  if (!candidate.startsWith(distDir)) {
     res.writeHead(403);
     res.end();
     return;
+  }
+
+  if (pathname === "/index.html") {
+    try {
+      await stat(candidate);
+    } catch {
+      res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("ビルドファイルが見つかりません。`npm start` を実行すると、ビルドしてから起動します。");
+      return;
+    }
   }
 
   await serveFile(req, res, candidate);
