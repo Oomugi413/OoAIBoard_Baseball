@@ -1,4 +1,5 @@
 // @ts-check
+import { useEffect, useState } from "react";
 
 /**
  * スコアボード本体（表示専用）。
@@ -7,6 +8,7 @@
  */
 export default function ScoreboardView({ board }) {
   const state = board.gameState;
+  const [, refreshOverlay] = useState(0);
   const away = board.teamSettings.away;
   const home = board.teamSettings.home;
   const batter = currentBatter(board);
@@ -19,6 +21,16 @@ export default function ScoreboardView({ board }) {
   const svgId = safeSvgId(board.id);
   const awayGradient = teamGradient(away.teamColor, "#ef2233");
   const homeGradient = teamGradient(home.teamColor, "#2c43e6");
+
+  useEffect(() => {
+    const expiresAt = Number(state.overlay?.expiresAt || 0);
+    if (!expiresAt) return undefined;
+    const timeout = window.setTimeout(
+      () => refreshOverlay((current) => current + 1),
+      Math.max(0, expiresAt - Date.now()) + 25
+    );
+    return () => window.clearTimeout(timeout);
+  }, [state.overlay?.expiresAt]);
 
   return (
     <article className={`scoreboard${showMatchup ? "" : " no-matchup"}`}>

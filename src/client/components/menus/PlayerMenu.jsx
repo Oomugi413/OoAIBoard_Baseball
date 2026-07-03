@@ -98,6 +98,9 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
         })
       });
       await refresh();
+      dirtyFieldsRef.current = new Set();
+      addedPitchersRef.current = { away: 0, home: 0 };
+      initialPitcherLengthsRef.current = createPitcherLengthsFromForm(form);
       onSaved("選手名メニューを保存しました。");
     } catch (error) {
       onError(error.message);
@@ -353,6 +356,13 @@ function createInitialPitcherLengths(board) {
   return {
     away: Math.max(1, board.playerSettings?.away?.pitchers?.length || 0),
     home: Math.max(1, board.playerSettings?.home?.pitchers?.length || 0)
+  };
+}
+
+function createPitcherLengthsFromForm(form) {
+  return {
+    away: Math.max(1, form.away?.pitchers?.length || 0),
+    home: Math.max(1, form.home?.pitchers?.length || 0)
   };
 }
 

@@ -1,7 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -370,7 +370,9 @@ async function loadState() {
 
 async function saveState() {
   await mkdir(storageDir, { recursive: true });
-  await writeFile(dataFile, JSON.stringify(state, null, 2), "utf8");
+  const temporaryFile = path.join(storageDir, `app.${process.pid}.${Date.now()}.tmp`);
+  await writeFile(temporaryFile, JSON.stringify(state, null, 2), "utf8");
+  await rename(temporaryFile, dataFile);
 }
 
 function publicState() {

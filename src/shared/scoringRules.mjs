@@ -236,6 +236,9 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
         changed: true
       };
 
+    case "board:patchConfig":
+      return patchBoardConfig(board, payload);
+
     case "team:update":
       return updateTeam(board, payload);
 
@@ -459,6 +462,72 @@ function updateTeam(board, payload) {
   };
   next.updatedAt = new Date().toISOString();
   return { board: next, changed: true };
+}
+
+function patchBoardConfig(board, payload) {
+  const next = structuredCloneCompat(board);
+  next.teamSettings = next.teamSettings || createDefaultTeamSettings();
+  next.displayOptions = next.displayOptions || createDefaultDisplayOptions();
+  next.playerSettings = next.playerSettings || createDefaultPlayerSettings();
+  let changed = false;
+
+  if (Object.hasOwn(payload, "name")) {
+    const name = String(payload.name || "").trim() || next.name;
+    if (name !== next.name) {
+      next.name = name;
+      changed = true;
+    }
+  }
+
+  const teams = payload.teams && typeof payload.teams === "object" ? payload.teams : {};
+  const defaultTeamSettings = createDefaultTeamSettings();
+  for (const side of [SIDES.AWAY, SIDES.HOME]) {
+    const values = teams[side] && typeof teams[side] === "object" ? teams[side] : null;
+    if (!values) continue;
+    next.teamSettings[side] = next.teamSettings[side] || defaultTeamSettings[side];
+    const current = next.teamSettings[side];
+    applyTeamPatch(current, values, "name", (value) => String(value || ""));
+    applyTeamPatch(current, values, "abbreviation", (value) => String(value || ""));
+    applyTeamPatch(current, values, "logoPath", (value) => String(value || ""));
+    applyTeamPatch(current, values, "teamColor", (value) => String(value || "#1f5fbf"));
+    applyTeamPatch(current, values, "textColor", (value) => String(value || "#ffffff"));
+    applyTeamPatch(current, values, "linkedPresetId", (value) => value ? String(value) : null);
+    applyTeamPatch(current, values, "abbreviationScale", (value) => clamp(Number(value) || 100, 60, 160));
+  }
+
+  const displayOptions = payload.displayOptions && typeof payload.displayOptions === "object"
+    ? payload.displayOptions
+    : {};
+  if (Object.hasOwn(displayOptions, "showAbs")) {
+    const showAbs = Boolean(displayOptions.showAbs);
+    if (next.displayOptions.showAbs !== showAbs) {
+      next.displayOptions.showAbs = showAbs;
+      changed = true;
+    }
+  }
+  if (Object.hasOwn(displayOptions, "showMatchup")) {
+    const showMatchup = Boolean(displayOptions.showMatchup);
+    if (next.displayOptions.showMatchup !== showMatchup) {
+      next.displayOptions.showMatchup = showMatchup;
+      changed = true;
+    }
+    if (next.playerSettings.matchupEnabled !== showMatchup) {
+      next.playerSettings.matchupEnabled = showMatchup;
+      changed = true;
+    }
+  }
+
+  if (!changed) return { board, changed: false };
+  next.updatedAt = new Date().toISOString();
+  return { board: next, changed: true };
+
+  function applyTeamPatch(current, values, field, normalize) {
+    if (!Object.hasOwn(values, field)) return;
+    const value = normalize(values[field]);
+    if (current[field] === value) return;
+    current[field] = value;
+    changed = true;
+  }
 }
 
 function updateDisplayOptions(board, payload) {

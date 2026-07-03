@@ -1,5 +1,5 @@
 // @ts-check
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -33,12 +33,15 @@ const SIDE_LABELS = { away: "先攻", home: "後攻" };
 export default function EditMenu({ open, board, presets, onClose, onSaved, onError, refresh }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => createEditForm(board));
+  const dirtyFieldsRef = useRef(new Set());
 
   const updateField = (field, value) => {
+    dirtyFieldsRef.current.add(`field:${field}`);
     setForm((current) => ({ ...current, [field]: value }));
   };
 
   const updateTeam = (side, field, value) => {
+    dirtyFieldsRef.current.add(`team:${side}:${field}`);
     setForm((current) => ({
       ...current,
       teams: {
@@ -71,6 +74,15 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
     const presetId = form.teams[side].selectedPresetId;
     const preset = presets.find((item) => item.id === presetId);
     if (!preset) return;
+    markTeamFieldsDirty(dirtyFieldsRef.current, side, [
+      "name",
+      "abbreviation",
+      "teamColor",
+      "textColor",
+      "logoPath",
+      "pendingLogo",
+      "linkedPresetId"
+    ]);
     setForm((current) => ({
       ...current,
       teams: {
@@ -121,37 +133,26 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
   const saveEditMenu = async () => {
     setSaving(true);
     try {
-      const teams = {};
-      for (const side of SIDES) {
-        teams[side] = await resolveTeamForSave(form.teams[side]);
+      const patch = await createEditPatch(form, dirtyFieldsRef.current);
+      if (!hasPatchContent(patch)) {
+        onSaved("保存する変更はありません。");
+        return;
       }
 
-      await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
+      const saved = await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
         method: "POST",
-        body: JSON.stringify({ type: "board:rename", payload: { name: form.boardName } })
+        body: JSON.stringify({ type: "board:patchConfig", payload: patch })
       });
-      for (const side of SIDES) {
-        await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
-          method: "POST",
-          body: JSON.stringify({ type: "team:update", payload: { side, values: teams[side] } })
-        });
-      }
-      await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
-        method: "POST",
-        body: JSON.stringify({
-          type: "display:update",
-          payload: {
-            showAbs: form.showAbs,
-            showMatchup: form.showMatchup
-          }
-        })
-      });
+      dirtyFieldsRef.current = new Set();
       setForm((current) => ({
         ...current,
-        teams: {
-          away: { ...current.teams.away, logoPath: teams.away.logoPath, pendingLogo: "" },
-          home: { ...current.teams.home, logoPath: teams.home.logoPath, pendingLogo: "" }
-        }
+        boardName: saved.name || current.boardName,
+        showAbs: Boolean(saved.displayOptions?.showAbs),
+        showMatchup: Boolean(saved.displayOptions?.showMatchup),
+        teams: SIDES.reduce((teams, side) => ({
+          ...teams,
+          [side]: createTeamForm(saved.teamSettings?.[side] || current.teams[side])
+        }), {})
       }));
       await refresh();
       onSaved("編集メニューを保存しました。");
@@ -378,6 +379,59 @@ function createTeamForm(team) {
     selectedPresetId: team.linkedPresetId || "",
     abbreviationScale: clampNumber(team.abbreviationScale, 60, 160, 100)
   };
+}
+
+async function createEditPatch(form, dirtyFields) {
+  const patch = {};
+  if (dirtyFields.has("field:boardName")) {
+    patch.name = form.boardName;
+  }
+
+  const teams = {};
+  for (const side of SIDES) {
+    const values = await createTeamPatch(form.teams[side], dirtyFields, side);
+    if (Object.keys(values).length) teams[side] = values;
+  }
+  if (Object.keys(teams).length) patch.teams = teams;
+
+  const displayOptions = {};
+  if (dirtyFields.has("field:showAbs")) displayOptions.showAbs = form.showAbs;
+  if (dirtyFields.has("field:showMatchup")) displayOptions.showMatchup = form.showMatchup;
+  if (Object.keys(displayOptions).length) patch.displayOptions = displayOptions;
+
+  return patch;
+}
+
+async function createTeamPatch(team, dirtyFields, side) {
+  const values = {};
+  const fieldKeys = ["name", "abbreviation", "teamColor", "textColor", "linkedPresetId", "abbreviationScale"];
+  for (const field of fieldKeys) {
+    if (dirtyFields.has(`team:${side}:${field}`)) {
+      values[field] = field === "abbreviationScale"
+        ? clampNumber(team[field], 60, 160, 100)
+        : team[field];
+    }
+  }
+  if (dirtyFields.has(`team:${side}:pendingLogo`)) {
+    values.logoPath = team.pendingLogo ? await uploadLogo(team.pendingLogo) : team.logoPath;
+  } else if (dirtyFields.has(`team:${side}:logoPath`)) {
+    values.logoPath = team.logoPath;
+  }
+  return values;
+}
+
+function hasPatchContent(patch) {
+  return Boolean(
+    Object.hasOwn(patch, "name") ||
+    Object.keys(patch.teams || {}).length ||
+    Object.keys(patch.displayOptions || {}).length
+  );
+}
+
+function markTeamFieldsDirty(target, side, fields) {
+  for (const field of fields) {
+    target.add(`team:${side}:${field}`);
+  }
 }
 
 async function resolveTeamForSave(team) {

@@ -1,5 +1,5 @@
 // @ts-check
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(state.settings));
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [presetForms, setPresetForms] = useState(() => createPresetForms(state.presets || []));
+  const presetDirtyFieldsRef = useRef(new Set());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +35,7 @@ export default function SettingsPage() {
   }, [settingsDirty, state.settings]);
 
   useEffect(() => {
-    setPresetForms((current) => mergePresetForms(current, state.presets || []));
+    setPresetForms((current) => mergePresetForms(current, state.presets || [], presetDirtyFieldsRef.current));
   }, [state.presets]);
 
   const updateSettings = (field, value) => {
@@ -43,6 +44,7 @@ export default function SettingsPage() {
   };
 
   const updatePreset = (presetId, field, value) => {
+    markPresetDirty(presetDirtyFieldsRef.current, presetId, [field]);
     setPresetForms((current) => ({
       ...current,
       [presetId]: {
@@ -56,6 +58,7 @@ export default function SettingsPage() {
     if (!file) return;
     try {
       const dataUrl = await createLogoDataUrl(file);
+      markPresetDirty(presetDirtyFieldsRef.current, presetId, ["pendingLogo", "logoPath"]);
       setPresetForms((current) => ({
         ...current,
         [presetId]: {
@@ -70,6 +73,7 @@ export default function SettingsPage() {
   };
 
   const clearPresetLogo = (presetId) => {
+    markPresetDirty(presetDirtyFieldsRef.current, presetId, ["pendingLogo", "logoPath"]);
     setPresetForms((current) => ({
       ...current,
       [presetId]: {
@@ -141,6 +145,7 @@ export default function SettingsPage() {
           textColor: form.textColor
         })
       });
+      clearPresetDirty(presetDirtyFieldsRef.current, presetId);
       setPresetForms((current) => ({
         ...current,
         [presetId]: createPresetForm(saved)
@@ -159,6 +164,7 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await api(`/api/presets/${encodeURIComponent(deletePresetId)}`, { method: "DELETE" });
+      clearPresetDirty(presetDirtyFieldsRef.current, deletePresetId);
       setDeletePresetId("");
       await refresh();
       setMessage("チームプリセットを削除しました。");
@@ -418,10 +424,25 @@ function createPresetForms(presets) {
   return Object.fromEntries(presets.map((preset) => [preset.id, createPresetForm(preset)]));
 }
 
-function mergePresetForms(current, presets) {
+const PRESET_FORM_FIELDS = ["presetName", "name", "abbreviation", "logoPath", "pendingLogo", "teamColor", "textColor"];
+
+function mergePresetForms(current, presets, dirtyFields = new Set()) {
   const next = {};
   for (const preset of presets) {
-    next[preset.id] = current[preset.id] || createPresetForm(preset);
+    const serverForm = createPresetForm(preset);
+    next[preset.id] = current[preset.id]
+      ? mergePresetForm(current[preset.id], serverForm, preset.id, dirtyFields)
+      : serverForm;
+  }
+  return next;
+}
+
+function mergePresetForm(current, serverForm, presetId, dirtyFields) {
+  const next = { ...serverForm };
+  for (const field of PRESET_FORM_FIELDS) {
+    if (dirtyFields.has(`preset:${presetId}:${field}`)) {
+      next[field] = current[field];
+    }
   }
   return next;
 }
@@ -436,6 +457,18 @@ function createPresetForm(preset) {
     teamColor: preset.teamColor || "#1f5fbf",
     textColor: preset.textColor || "#ffffff"
   };
+}
+
+function markPresetDirty(target, presetId, fields) {
+  for (const field of fields) {
+    target.add(`preset:${presetId}:${field}`);
+  }
+}
+
+function clearPresetDirty(target, presetId) {
+  for (const key of Array.from(target)) {
+    if (key.startsWith(`preset:${presetId}:`)) target.delete(key);
+  }
 }
 
 async function uploadLogo(dataUrl) {
