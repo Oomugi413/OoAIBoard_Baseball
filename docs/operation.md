@@ -260,11 +260,13 @@ Preset Reorder Page:
 
 - 直前の操作を取り消す。
 - Keyboard shortcut: Ctrl+Z / Cmd+Z
+- キーボードショートカットは、戻る/進むボタンがある Score Input Page だけで有効にする。
 
 進む:
 
 - 取り消した操作をやり直す。
 - Keyboard shortcut: Ctrl+Shift+Z / Cmd+Shift+Z
+- キーボードショートカットは、入力欄や選択欄へ文字入力している間は反応させない。
 
 設計方針:
 

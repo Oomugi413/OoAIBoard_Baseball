@@ -1,5 +1,5 @@
 // @ts-check
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -98,6 +98,19 @@ export default function ScoreInputPage() {
       setPending(false);
     }
   };
+
+  useEffect(() => {
+    if (!board || pending) return undefined;
+    const handleKeyDown = (event) => {
+      if (isEditableTarget(event.target)) return;
+      const isUndoRedoKey = event.key.toLowerCase() === "z" && (event.ctrlKey || event.metaKey);
+      if (!isUndoRedoKey) return;
+      event.preventDefault();
+      runAction(event.shiftKey ? "history:redo" : "history:undo");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [board, pending, runAction]);
 
   if (!board) {
     return (
@@ -232,4 +245,10 @@ export default function ScoreInputPage() {
       />
     </Box>
   );
+}
+
+function isEditableTarget(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.closest("input, textarea, select")) return true;
+  return Boolean(target.closest("[contenteditable='true']"));
 }
