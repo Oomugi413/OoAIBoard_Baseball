@@ -6,7 +6,7 @@
 
 このプロジェクトは、スコアボード表示の見た目を端末間で揃えるため、以下のフォントを使用します。
 
-- D-DIN PRO / D-DIN PRO Condensed
+- D-DIN PRO Exp / D-DIN PRO / D-DIN PRO Condensed
   - Source: https://github.com/CyberFei/D-DIN-PRO
   - License: SIL Open Font License 1.1
   - Files: `src/client/fonts/d-din-pro/`

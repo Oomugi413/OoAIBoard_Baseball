@@ -2,19 +2,19 @@
   position: relative;
   width: 100%;
   min-width: 320px;
-  aspect-ratio: 1040 / 560;
+  aspect-ratio: 1200 / 560;
   container-type: size;
   overflow: hidden;
   background: #070a11;
   color: #ffffff;
   border-radius: 10px;
-  font-family: "D-DIN PRO Condensed", "D-DIN PRO", "Noto Sans JP", sans-serif;
+  font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif;
   font-weight: 900;
   filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.42));
 }
 
 .scoreboard.no-matchup {
-  aspect-ratio: 1040 / 362;
+  aspect-ratio: 1200 / 362;
 }
 
 .scoreboard-svg {

@@ -41,7 +41,7 @@ export default function ScoreboardView({ board }) {
       ) : null}
       <svg
         className="scoreboard-svg"
-        viewBox={showMatchup ? "0 0 1040 560" : "0 198 1040 362"}
+        viewBox={showMatchup ? "0 0 1200 560" : "0 198 1200 362"}
         role="img"
         aria-label={matchupSummary(board)}
       >
@@ -95,24 +95,24 @@ export default function ScoreboardView({ board }) {
             </feMerge>
           </filter>
           <style>{`
-            .sb-text-${svgId} { font-family: "D-DIN PRO Condensed", "D-DIN PRO", "Noto Sans JP", sans-serif; }
+            .sb-text-${svgId} { font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif; }
             .sb-name-${svgId} { font-size: 60px; font-weight: 600; fill: #eef4fd; }
             .sb-stat-${svgId} { font-size: 51px; font-weight: 600; fill: #93a3bb; }
-            .sb-chip-${svgId} { font-size: 42px; font-weight: 700; fill: #ffffff; }
+            .sb-chip-${svgId} { font-size: 42px; font-weight: 700; }
             .sb-abbr-${svgId} { font-weight: 700; letter-spacing: 0.5px; }
             .sb-score-${svgId} { font-size: 150px; font-weight: 700; }
             .sb-inn-${svgId} { font-size: 128px; font-weight: 700; fill: #ffffff; }
-            .sb-count-${svgId} { font-size: 74px; font-weight: 700; fill: #f2f6ff; letter-spacing: 2px; }
+            .sb-count-${svgId} { font-size: 104px; font-weight: 700; fill: #f2f6ff; letter-spacing: 2px; }
           `}</style>
         </defs>
 
-        <rect x="4" y="4" width="1032" height="552" rx="20" fill={`url(#bezel-${svgId})`} />
-        <rect x="6" y="5" width="1028" height="6" rx="3" fill="#6d778c" opacity="0.5" />
-        <rect x="13" y="13" width="1014" height="534" rx="12" fill={`url(#boardBg-${svgId})`} />
+        <rect x="4" y="4" width="1192" height="552" rx="20" fill={`url(#bezel-${svgId})`} />
+        <rect x="6" y="5" width="1188" height="6" rx="3" fill="#6d778c" opacity="0.5" />
+        <rect x="13" y="13" width="1174" height="534" rx="12" fill={`url(#boardBg-${svgId})`} />
         <rect
           x="13.75"
           y="13.75"
-          width="1012.5"
+          width="1172.5"
           height="532.5"
           rx="11"
           fill="none"
@@ -123,7 +123,7 @@ export default function ScoreboardView({ board }) {
 
         {showMatchup ? (
           <>
-            <rect x="20" y="20" width="1000" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
+            <rect x="20" y="20" width="1160" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
             <MatchupSvg
               svgId={svgId}
               board={board}
@@ -135,9 +135,9 @@ export default function ScoreboardView({ board }) {
           </>
         ) : null}
         {showMatchup ? (
-          <rect x="20" y="198" width="1000" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
+          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
         ) : (
-          <rect x="20" y="198" width="1000" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} opacity="0.65" />
+          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} opacity="0.65" />
         )}
         <InningSvg svgId={svgId} gameState={state} />
         <line x1="150" y1="214" x2="150" y2="540" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="1" />
@@ -161,8 +161,8 @@ export default function ScoreboardView({ board }) {
         <BasesSvg svgId={svgId} runners={state.runners} />
         <text
           className={`sb-text-${svgId} sb-count-${svgId}`}
-          x="904"
-          y="425"
+          x="990"
+          y="438"
           textAnchor="middle"
         >
           {state.balls}-{state.strikes}
@@ -178,25 +178,25 @@ function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
     <>
       <rect x="30" y="30" width="62" height="62" rx="11" fill={teamColor(board, attacking)} />
       <rect x="30" y="30" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
-      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="74" textAnchor="middle">
+      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="74" textAnchor="middle" fill={teamTextColor(board, attacking)}>
         {batterLabel(batter)}
       </text>
       <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="82">
         {batter?.playerName || "N.Batter"}
       </text>
-      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1010" y="79" textAnchor="end">
+      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="79" textAnchor="end">
         {batterLine(batter)}
       </text>
-      <line x1="30" y1="110" x2="1010" y2="110" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
+      <line x1="30" y1="110" x2="1170" y2="110" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
       <rect x="30" y="120" width="62" height="62" rx="11" fill={teamColor(board, defending)} />
       <rect x="30" y="120" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
-      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="164" textAnchor="middle">
+      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="164" textAnchor="middle" fill={teamTextColor(board, defending)}>
         P
       </text>
       <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="172">
         {pitcher?.pitcherName || "N.Pitcher"}
       </text>
-      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1010" y="169" textAnchor="end">
+      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="169" textAnchor="end">
         P.{pitcher?.pitchCount || 0}
       </text>
     </>
@@ -342,9 +342,9 @@ function TeamLogoSvg({ team, cx, cy }) {
 function BasesSvg({ svgId, runners }) {
   return (
     <>
-      <BaseDiamondSvg svgId={svgId} points="904,220 934,250 904,280 874,250" active={runners.second} />
-      <BaseDiamondSvg svgId={svgId} points="948,264 978,294 948,324 918,294" active={runners.first} />
-      <BaseDiamondSvg svgId={svgId} points="860,264 890,294 860,324 830,294" active={runners.third} />
+      <BaseDiamondSvg svgId={svgId} points="990,208 1032,250 990,292 948,250" active={runners.second} />
+      <BaseDiamondSvg svgId={svgId} points="1052,270 1094,312 1052,354 1010,312" active={runners.first} />
+      <BaseDiamondSvg svgId={svgId} points="928,270 970,312 928,354 886,312" active={runners.third} />
     </>
   );
 }
@@ -356,22 +356,22 @@ function BaseDiamondSvg({ svgId, points, active }) {
         points={points}
         fill={`url(#baseOn-${svgId})`}
         stroke="#ff707b"
-        strokeWidth="2"
+        strokeWidth="2.8"
         filter={`url(#glowR-${svgId})`}
       />
     );
   }
-  return <polygon points={points} fill="#141b26" stroke="#47546c" strokeWidth="3" />;
+  return <polygon points={points} fill="#141b26" stroke="#47546c" strokeWidth="4.2" />;
 }
 
 function OutsSvg({ svgId, outs }) {
   return (
     <>
-      {[854, 904, 954].map((cx, index) =>
+      {[920, 990, 1060].map((cx, index) =>
         index < outs ? (
-          <circle key={cx} cx={cx} cy="492" r="20" fill={`url(#baseOn-${svgId})`} filter={`url(#glowR-${svgId})`} />
+          <circle key={cx} cx={cx} cy="492" r="28" fill={`url(#baseOn-${svgId})`} filter={`url(#glowR-${svgId})`} />
         ) : (
-          <circle key={cx} cx={cx} cy="492" r="20" fill="#141b26" stroke="#47546c" strokeWidth="3.5" />
+          <circle key={cx} cx={cx} cy="492" r="28" fill="#141b26" stroke="#47546c" strokeWidth="4.9" />
         )
       )}
     </>
@@ -396,6 +396,10 @@ function defendingSide(gameState) {
 
 function teamColor(board, side) {
   return board.teamSettings[side].teamColor;
+}
+
+function teamTextColor(board, side) {
+  return board.teamSettings[side].textColor || "#ffffff";
 }
 
 function safeSvgId(value) {
