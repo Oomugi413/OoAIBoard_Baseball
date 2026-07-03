@@ -46,6 +46,7 @@ export function createDefaultTeamSettings() {
       teamColor: "#ef1d2f",
       textColor: "#ffffff",
       abbreviationScale: 100,
+      abbreviationWidth: 100,
       linkedPresetId: null
     },
     home: {
@@ -56,6 +57,7 @@ export function createDefaultTeamSettings() {
       teamColor: "#4350d8",
       textColor: "#ffffff",
       abbreviationScale: 100,
+      abbreviationWidth: 100,
       linkedPresetId: null
     }
   };
@@ -528,6 +530,7 @@ function patchBoardConfig(board, payload) {
     applyTeamPatch(current, values, "textColor", (value) => String(value || "#ffffff"));
     applyTeamPatch(current, values, "linkedPresetId", (value) => value ? String(value) : null);
     applyTeamPatch(current, values, "abbreviationScale", (value) => clamp(Number(value) || 100, 60, 180));
+    applyTeamPatch(current, values, "abbreviationWidth", (value) => clamp(Number(value) || 100, 30, 120));
   }
 
   const displayOptions = payload.displayOptions && typeof payload.displayOptions === "object"

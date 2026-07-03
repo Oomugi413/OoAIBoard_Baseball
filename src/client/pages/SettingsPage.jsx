@@ -116,7 +116,8 @@ export default function SettingsPage() {
           abbreviation: "Team",
           logoPath: "",
           teamColor: "#1f5fbf",
-          textColor: "#ffffff"
+          textColor: "#ffffff",
+          abbreviationWidth: 100
         })
       });
       await refresh();
@@ -142,7 +143,8 @@ export default function SettingsPage() {
           abbreviation: form.abbreviation,
           logoPath,
           teamColor: form.teamColor,
-          textColor: form.textColor
+          textColor: form.textColor,
+          abbreviationWidth: form.abbreviationWidth
         })
       });
       clearPresetDirty(presetDirtyFieldsRef.current, presetId);
@@ -424,7 +426,7 @@ function createPresetForms(presets) {
   return Object.fromEntries(presets.map((preset) => [preset.id, createPresetForm(preset)]));
 }
 
-const PRESET_FORM_FIELDS = ["presetName", "name", "abbreviation", "logoPath", "pendingLogo", "teamColor", "textColor"];
+const PRESET_FORM_FIELDS = ["presetName", "name", "abbreviation", "logoPath", "pendingLogo", "teamColor", "textColor", "abbreviationWidth"];
 
 function mergePresetForms(current, presets, dirtyFields = new Set()) {
   const next = {};
@@ -455,7 +457,8 @@ function createPresetForm(preset) {
     logoPath: preset.logoPath || "",
     pendingLogo: "",
     teamColor: preset.teamColor || "#1f5fbf",
-    textColor: preset.textColor || "#ffffff"
+    textColor: preset.textColor || "#ffffff",
+    abbreviationWidth: Number.isFinite(Number(preset.abbreviationWidth)) ? Number(preset.abbreviationWidth) : 100
   };
 }
 

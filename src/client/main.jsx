@@ -5,6 +5,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { theme } from "./theme.js";
 import { ServerStateProvider } from "./api/useServerState.js";
+import "./styles/fonts.css";
 import "./styles/scoreboard.css";
 
 const HomePage = lazy(() => import("./pages/HomePage.jsx"));

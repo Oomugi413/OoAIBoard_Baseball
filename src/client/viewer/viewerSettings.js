@@ -2,7 +2,7 @@
 
 export const VIEWER_SETTINGS_KEY = "baseball-scoreboard.viewer";
 export const DEFAULT_BOARD_WIDTH = 520;
-export const BOARD_ASPECT_RATIO = 1200 / 560;
+export const BOARD_ASPECT_RATIO = 1040 / 560;
 export const MIN_BOARD_SCALE = 25;
 export const MAX_BOARD_SCALE = 300;
 

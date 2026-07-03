@@ -33,7 +33,7 @@ import {
 } from "../viewer/viewerSettings.js";
 
 const RESIZE_HANDLES = ["n", "e", "s", "w", "ne", "se", "sw", "nw"];
-const COMPACT_BOARD_ASPECT_RATIO = 1200 / 362;
+const COMPACT_BOARD_ASPECT_RATIO = 1040 / 362;
 
 export default function ViewerPage() {
   const { state } = useServerState();

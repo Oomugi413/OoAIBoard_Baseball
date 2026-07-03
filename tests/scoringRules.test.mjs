@@ -63,6 +63,18 @@ function run(board, type, payload = {}) {
 
 {
   let board = createBoard("test");
+  board = run(board, "board:patchConfig", {
+    teams: {
+      away: { abbreviationWidth: 10 },
+      home: { abbreviationWidth: 999 }
+    }
+  });
+  assert.equal(board.teamSettings.away.abbreviationWidth, 30);
+  assert.equal(board.teamSettings.home.abbreviationWidth, 120);
+}
+
+{
+  let board = createBoard("test");
   board = run(board, "pitch:strike");
   board = run(board, "pitch:foul");
   board = run(board, "pitch:foul");

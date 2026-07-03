@@ -20,6 +20,8 @@ const SIDES = ["away", "home"];
 const SIDE_LABELS = { away: "先攻", home: "後攻" };
 const MIN_ABBREVIATION_SCALE = 60;
 const MAX_ABBREVIATION_SCALE = 180;
+const MIN_ABBREVIATION_WIDTH = 30;
+const MAX_ABBREVIATION_WIDTH = 120;
 
 /**
  * @param {{
@@ -83,7 +85,8 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
       "textColor",
       "logoPath",
       "pendingLogo",
-      "linkedPresetId"
+      "linkedPresetId",
+      "abbreviationWidth"
     ]);
     setForm((current) => ({
       ...current,
@@ -95,6 +98,7 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
           abbreviation: preset.abbreviation || "",
           teamColor: preset.teamColor || "#1f5fbf",
           textColor: preset.textColor || "#ffffff",
+          abbreviationWidth: clampNumber(preset.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100),
           logoPath: preset.logoPath || "",
           pendingLogo: "",
           linkedPresetId: preset.id,
@@ -116,7 +120,8 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
           abbreviation: team.abbreviation,
           logoPath: team.logoPath,
           teamColor: team.teamColor,
-          textColor: team.textColor
+          textColor: team.textColor,
+          abbreviationWidth: team.abbreviationWidth
         })
       });
       updateTeam(side, "linkedPresetId", preset.id);
@@ -246,6 +251,12 @@ function TeamSection({
     MAX_ABBREVIATION_SCALE,
     100
   );
+  const abbreviationWidth = clampNumber(
+    team.abbreviationWidth,
+    MIN_ABBREVIATION_WIDTH,
+    MAX_ABBREVIATION_WIDTH,
+    100
+  );
   return (
     <Box component="section" sx={{ display: "grid", gap: 1.5 }}>
       <Divider />
@@ -282,6 +293,28 @@ function TeamSection({
           min={MIN_ABBREVIATION_SCALE}
           max={MAX_ABBREVIATION_SCALE}
           onApply={(value) => onUpdate(side, "abbreviationScale", value)}
+        />
+      </Stack>
+      <Stack spacing={0.5}>
+        <Typography variant="body2">略称圧縮 {abbreviationWidth}%</Typography>
+        <Slider
+          value={abbreviationWidth}
+          min={MIN_ABBREVIATION_WIDTH}
+          max={MAX_ABBREVIATION_WIDTH}
+          step={5}
+          marks={[
+            { value: MIN_ABBREVIATION_WIDTH, label: "30%" },
+            { value: 100, label: "100%" },
+            { value: MAX_ABBREVIATION_WIDTH, label: "120%" }
+          ]}
+          onChange={(_, value) => onUpdate(side, "abbreviationWidth", Array.isArray(value) ? value[0] : value)}
+        />
+        <NumberApplyField
+          label="略称圧縮(%)"
+          value={abbreviationWidth}
+          min={MIN_ABBREVIATION_WIDTH}
+          max={MAX_ABBREVIATION_WIDTH}
+          onApply={(value) => onUpdate(side, "abbreviationWidth", value)}
         />
       </Stack>
       <Stack direction="row" spacing={1}>
@@ -412,7 +445,8 @@ function createTeamForm(team) {
     textColor: team.textColor || "#ffffff",
     linkedPresetId: team.linkedPresetId || "",
     selectedPresetId: team.linkedPresetId || "",
-    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100),
+    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100)
   };
 }
 
@@ -439,12 +473,16 @@ async function createEditPatch(form, dirtyFields) {
 
 async function createTeamPatch(team, dirtyFields, side) {
   const values = {};
-  const fieldKeys = ["name", "abbreviation", "teamColor", "textColor", "linkedPresetId", "abbreviationScale"];
+  const fieldKeys = ["name", "abbreviation", "teamColor", "textColor", "linkedPresetId", "abbreviationScale", "abbreviationWidth"];
   for (const field of fieldKeys) {
     if (dirtyFields.has(`team:${side}:${field}`)) {
-      values[field] = field === "abbreviationScale"
-        ? clampNumber(team[field], MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
-        : team[field];
+      if (field === "abbreviationScale") {
+        values[field] = clampNumber(team[field], MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100);
+      } else if (field === "abbreviationWidth") {
+        values[field] = clampNumber(team[field], MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100);
+      } else {
+        values[field] = team[field];
+      }
     }
   }
   if (dirtyFields.has(`team:${side}:pendingLogo`)) {
@@ -478,7 +516,8 @@ async function resolveTeamForSave(team) {
     textColor: team.textColor,
     logoPath,
     linkedPresetId: team.linkedPresetId || null,
-    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100),
+    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100)
   };
 }
 

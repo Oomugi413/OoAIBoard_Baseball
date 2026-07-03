@@ -1,0 +1,39 @@
+@font-face {
+  font-family: "D-DIN PRO";
+  src: url("../fonts/d-din-pro/D-DIN-PRO-700-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/noto-sans-jp/NotoSansJP-Japanese-600.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/noto-sans-jp/NotoSansJP-Japanese-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/noto-sans-jp/NotoSansJP-Japanese-900.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "D-DIN PRO Condensed";
+  src: url("../fonts/d-din-pro/D-DIN-PRO-Condensed-700-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}

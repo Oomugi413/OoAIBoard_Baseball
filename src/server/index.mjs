@@ -486,8 +486,14 @@ function normalizeTeamPreset(values = {}) {
     abbreviation,
     logoPath: String(values.logoPath || "").trim(),
     teamColor: String(values.teamColor || "#1f5fbf").trim(),
-    textColor: String(values.textColor || "#ffffff").trim()
+    textColor: String(values.textColor || "#ffffff").trim(),
+    abbreviationWidth: clampNumber(values.abbreviationWidth, 30, 120, 100)
   };
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  return Math.max(min, Math.min(max, Number.isFinite(number) ? number : fallback));
 }
 
 function cleanupIfIdle() {
