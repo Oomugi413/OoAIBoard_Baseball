@@ -22,13 +22,15 @@ export default function ScoreboardView({ board }) {
   const homeGradient = teamGradient(home.teamColor, "#2c43e6");
 
   return (
-    <article className="scoreboard">
+    <article className={`scoreboard${showMatchup ? "" : " no-matchup"}`}>
       {overlay ? (
-        <div className={`overlay${overlay.reverse ? " reverse" : ""}`}>{overlay.message}</div>
+        <div className={`overlay${overlay.kind === "strikeout" ? " strikeout" : ""}${overlay.reverse ? " reverse" : ""}`}>
+          {overlay.message}
+        </div>
       ) : null}
       <svg
         className="scoreboard-svg"
-        viewBox="0 0 1200 560"
+        viewBox={showMatchup ? "0 0 1200 560" : "0 198 1200 362"}
         role="img"
         aria-label={matchupSummary(board)}
       >
@@ -108,19 +110,24 @@ export default function ScoreboardView({ board }) {
           strokeWidth="1.5"
         />
 
-        <rect x="20" y="20" width="1160" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
         {showMatchup ? (
-          <MatchupSvg
-            svgId={svgId}
-            board={board}
-            batter={batter}
-            pitcher={pitcher}
-            attacking={attacking}
-            defending={defending}
-          />
+          <>
+            <rect x="20" y="20" width="1160" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
+            <MatchupSvg
+              svgId={svgId}
+              board={board}
+              batter={batter}
+              pitcher={pitcher}
+              attacking={attacking}
+              defending={defending}
+            />
+          </>
         ) : null}
-        <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
-
+        {showMatchup ? (
+          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
+        ) : (
+          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} opacity="0.65" />
+        )}
         <InningSvg svgId={svgId} gameState={state} />
         <line x1="150" y1="214" x2="150" y2="540" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="1" />
 

@@ -94,17 +94,23 @@ export default function PresetReorderPage() {
               {saving ? "保存中" : "ドラッグで並べ替え"}
             </Typography>
           </Stack>
-          <Stack ref={listRef} spacing={1} data-preset-reorder-list>
+          <Stack ref={listRef} spacing={1.25} data-preset-reorder-list>
             {orderedPresets.length ? (
-              orderedPresets.map((preset) => (
+              orderedPresets.map((preset, index) => (
                 <Card
                   key={preset.id}
                   variant="outlined"
                   data-preset-reorder-item={preset.id}
                   sx={{
-                    opacity: draggingId === preset.id ? 0.72 : 1,
-                    boxShadow: draggingId === preset.id ? 4 : 0,
-                    touchAction: "none"
+                    opacity: draggingId && draggingId !== preset.id ? 0.82 : 1,
+                    boxShadow: draggingId === preset.id ? "0 18px 38px rgba(15, 23, 42, 0.28)" : "0 2px 10px rgba(15, 23, 42, 0.08)",
+                    borderColor: draggingId === preset.id ? "primary.main" : "divider",
+                    bgcolor: draggingId === preset.id ? "rgba(25, 118, 210, 0.08)" : "background.paper",
+                    borderRadius: 3,
+                    touchAction: "none",
+                    transform: draggingId === preset.id ? "scale(1.018)" : "scale(1)",
+                    transition: "transform 160ms ease, box-shadow 160ms ease, opacity 140ms ease, border-color 160ms ease",
+                    willChange: "transform"
                   }}
                 >
                   <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -117,13 +123,24 @@ export default function PresetReorderPage() {
                         onPointerUp={finishDrag}
                         onPointerCancel={finishDrag}
                         data-drag-preset={preset.id}
-                        sx={{ minWidth: 48, cursor: "grab", touchAction: "none" }}
+                        aria-label={`${preset.presetName || "Team Preset"}を並べ替え`}
+                        sx={{
+                          minWidth: 56,
+                          width: 56,
+                          height: 56,
+                          borderRadius: 2.5,
+                          cursor: draggingId === preset.id ? "grabbing" : "grab",
+                          touchAction: "none",
+                          fontSize: 22,
+                          lineHeight: 1,
+                          px: 0
+                        }}
                       >
-                        =
+                        ⋮⋮
                       </Button>
                       <Box sx={{ minWidth: 0 }}>
                         <Typography fontWeight="bold" noWrap>
-                          {preset.presetName || "Team Preset"}
+                          {index + 1}. {preset.presetName || "Team Preset"}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" noWrap>
                           {preset.abbreviation || preset.name} / {preset.name || ""}

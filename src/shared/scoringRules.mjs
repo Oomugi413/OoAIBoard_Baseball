@@ -315,11 +315,11 @@ function applyPlateAppearance(board, result, settings) {
       break;
     case "strikeoutSwinging":
       addBatterStat(board, "strikeoutsSwinging");
-      board.gameState.overlay = createOverlay("K", settings);
+      board.gameState.overlay = createOverlay("K", settings, false, "strikeout");
       break;
     case "strikeoutLooking":
       addBatterStat(board, "strikeoutsLooking");
-      board.gameState.overlay = createOverlay("K", settings, true);
+      board.gameState.overlay = createOverlay("K", settings, true, "strikeout");
       break;
     case "other":
       addBatterStat(board, "others");
@@ -385,11 +385,14 @@ export function calculateBatterLine(batter) {
   return `${hits}-${atBats}`;
 }
 
-function createOverlay(message, settings, reverse = false) {
-  const seconds = Number(settings?.overlayDisplaySeconds || DEFAULT_OVERLAY_SECONDS);
+function createOverlay(message, settings, reverse = false, kind = "default") {
+  const seconds = kind === "strikeout"
+    ? DEFAULT_OVERLAY_SECONDS
+    : Number(settings?.overlayDisplaySeconds || DEFAULT_OVERLAY_SECONDS);
   return {
     message,
     reverse,
+    kind,
     expiresAt: Date.now() + seconds * 1000
   };
 }
