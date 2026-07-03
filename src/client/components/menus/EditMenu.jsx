@@ -1,5 +1,5 @@
 // @ts-check
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -18,6 +18,8 @@ import { api } from "../../api/client.js";
 
 const SIDES = ["away", "home"];
 const SIDE_LABELS = { away: "先攻", home: "後攻" };
+const MIN_ABBREVIATION_SCALE = 60;
+const MAX_ABBREVIATION_SCALE = 180;
 
 /**
  * @param {{
@@ -238,6 +240,12 @@ function TeamSection({
   onSavePreset
 }) {
   const preview = team.pendingLogo || team.logoPath;
+  const abbreviationScale = clampNumber(
+    team.abbreviationScale,
+    MIN_ABBREVIATION_SCALE,
+    MAX_ABBREVIATION_SCALE,
+    100
+  );
   return (
     <Box component="section" sx={{ display: "grid", gap: 1.5 }}>
       <Divider />
@@ -255,29 +263,25 @@ function TeamSection({
         onChange={(event) => onUpdate(side, "abbreviation", event.target.value)}
       />
       <Stack spacing={0.5}>
-        <Typography variant="body2">略称拡大率 {team.abbreviationScale}%</Typography>
+        <Typography variant="body2">略称拡大率 {abbreviationScale}%</Typography>
         <Slider
-          value={team.abbreviationScale}
-          min={60}
-          max={180}
+          value={abbreviationScale}
+          min={MIN_ABBREVIATION_SCALE}
+          max={MAX_ABBREVIATION_SCALE}
           step={5}
           marks={[
-            { value: 60, label: "60%" },
+            { value: MIN_ABBREVIATION_SCALE, label: "60%" },
             { value: 100, label: "100%" },
-            { value: 180, label: "180%" }
+            { value: MAX_ABBREVIATION_SCALE, label: "180%" }
           ]}
           onChange={(_, value) => onUpdate(side, "abbreviationScale", Array.isArray(value) ? value[0] : value)}
         />
-        <TextField
+        <NumberApplyField
           label="略称拡大率(%)"
-          type="number"
-          value={team.abbreviationScale}
-          inputProps={{ min: 60, max: 180, step: 5 }}
-          onChange={(event) => onUpdate(side, "abbreviationScale", event.target.value)}
-          onBlur={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 180, 100))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
+          value={abbreviationScale}
+          min={MIN_ABBREVIATION_SCALE}
+          max={MAX_ABBREVIATION_SCALE}
+          onApply={(value) => onUpdate(side, "abbreviationScale", value)}
         />
       </Stack>
       <Stack direction="row" spacing={1}>
@@ -355,6 +359,37 @@ function TeamSection({
   );
 }
 
+function NumberApplyField({ label, value, min, max, onApply }) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const apply = () => {
+    onApply(clampNumber(draft, min, max, value));
+  };
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <TextField
+        label={label}
+        type="text"
+        value={draft}
+        inputProps={{ inputMode: "numeric" }}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") apply();
+        }}
+        sx={{ flex: 1 }}
+      />
+      <Button variant="outlined" onClick={apply}>
+        反映
+      </Button>
+    </Stack>
+  );
+}
+
 function createEditForm(board) {
   return {
     boardName: board.name || "",
@@ -377,7 +412,7 @@ function createTeamForm(team) {
     textColor: team.textColor || "#ffffff",
     linkedPresetId: team.linkedPresetId || "",
     selectedPresetId: team.linkedPresetId || "",
-    abbreviationScale: clampNumber(team.abbreviationScale, 60, 180, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
   };
 }
 
@@ -408,7 +443,7 @@ async function createTeamPatch(team, dirtyFields, side) {
   for (const field of fieldKeys) {
     if (dirtyFields.has(`team:${side}:${field}`)) {
       values[field] = field === "abbreviationScale"
-        ? clampNumber(team[field], 60, 180, 100)
+        ? clampNumber(team[field], MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
         : team[field];
     }
   }
@@ -443,7 +478,7 @@ async function resolveTeamForSave(team) {
     textColor: team.textColor,
     logoPath,
     linkedPresetId: team.linkedPresetId || null,
-    abbreviationScale: clampNumber(team.abbreviationScale, 60, 180, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100)
   };
 }
 

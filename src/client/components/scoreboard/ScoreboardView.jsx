@@ -95,7 +95,7 @@ export default function ScoreboardView({ board }) {
             </feMerge>
           </filter>
           <style>{`
-            .sb-text-${svgId} { font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Yu Gothic", sans-serif; }
+            .sb-text-${svgId} { font-family: "DIN Alternate", "Bahnschrift", "Aptos", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans CJK JP", "Noto Sans JP", "BIZ UDPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif; }
             .sb-name-${svgId} { font-size: 60px; font-weight: 600; fill: #eef4fd; }
             .sb-stat-${svgId} { font-size: 51px; font-weight: 600; fill: #93a3bb; }
             .sb-chip-${svgId} { font-size: 42px; font-weight: 700; fill: #ffffff; }
@@ -226,19 +226,25 @@ function InningSvg({ svgId, gameState }) {
 function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const y = side === "away" ? 212 : 382;
   const logoCy = side === "away" ? 291 : 461;
-  const textY = y + 79;
+  const textY = y + 84;
   const scoreY = side === "away" ? 345 : 515;
   const dividerTop = side === "away" ? 226 : 396;
   const dividerBottom = side === "away" ? 356 : 526;
   const gradientId = side === "away" ? `awayBar-${svgId}` : `homeBar-${svgId}`;
+  const clipId = `${side}TeamClip-${svgId}`;
   const label = team.abbreviation || team.name;
   const labelFontSize = Math.round(teamLabelFontSize(label) * teamAbbreviationScale(team));
 
   return (
     <>
+      <defs>
+        <clipPath id={clipId}>
+          <rect x="162" y={y} width="808" height="158" />
+        </clipPath>
+      </defs>
       <rect x="162" y={y} width="808" height="158" rx="13" fill={`url(#${gradientId})`} />
       <rect x="162" y={y} width="808" height="79" rx="13" fill="#ffffff" opacity="0.10" />
-      {absCount === null ? null : <AbsPipsSvg absCount={absCount} teamY={y} />}
+      {absCount === null ? null : <AbsPipsSvg absCount={absCount} teamY={y} color={team.textColor || "#ffffff"} />}
       <TeamLogoSvg team={team} cx={263} cy={logoCy} />
       <text
         className={`sb-text-${svgId} sb-abbr-${svgId}`}
@@ -246,7 +252,8 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
         y={textY}
         fontSize={labelFontSize}
         fill={team.textColor || "#ffffff"}
-        dominantBaseline="middle"
+        dominantBaseline="central"
+        clipPath={`url(#${clipId})`}
       >
         {label}
       </text>
@@ -274,7 +281,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
   );
 }
 
-function AbsPipsSvg({ absCount, teamY }) {
+function AbsPipsSvg({ absCount, teamY, color }) {
   const topY = teamY + 32;
   return (
     <>
@@ -286,7 +293,7 @@ function AbsPipsSvg({ absCount, teamY }) {
           width="13"
           height="42"
           rx="5"
-          fill="#ffffff"
+          fill={color}
           opacity={index < absCount ? "0.92" : "0.35"}
         />
       ))}

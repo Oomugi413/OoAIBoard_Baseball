@@ -1,5 +1,5 @@
 // @ts-check
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -186,12 +186,40 @@ function ViewerToolbar({
 }) {
   const disabled = !boards.length;
   const scale = Math.round(selectedTransform.scale);
+  const [draftTransform, setDraftTransform] = useState(() => createViewerDraft(selectedTransform));
+
+  useEffect(() => {
+    setDraftTransform(createViewerDraft(selectedTransform));
+  }, [selectedBoardId, selectedTransform.scale, selectedTransform.x, selectedTransform.y]);
+
+  const updateDraftScale = (rawValue) => {
+    setDraftTransform((current) => {
+      const number = Number(rawValue);
+      return {
+        ...current,
+        scale: rawValue,
+        size: Number.isFinite(number) ? String(scaleToBoardSize(number)) : current.size
+      };
+    });
+  };
+
+  const updateDraftSize = (rawValue) => {
+    setDraftTransform((current) => {
+      const number = Number(rawValue);
+      return {
+        ...current,
+        size: rawValue,
+        scale: Number.isFinite(number) ? String(Math.round(boardSizeToScale(number))) : current.scale
+      };
+    });
+  };
+
   return (
     <Box
       component="section"
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "180px 220px minmax(220px, 1fr) 120px 120px 110px 110px auto" },
+        gridTemplateColumns: { xs: "1fr", md: "180px 220px minmax(220px, 1fr) 170px 170px 150px 150px auto" },
         gap: 1,
         alignItems: "center",
         p: 1.5,
@@ -235,32 +263,38 @@ function ViewerToolbar({
           data-viewer-scale
         />
       </Stack>
-      <LinkedNumberField
+      <DraftNumberField
         label="拡大率(%)"
         disabled={disabled}
-        value={scale}
-        onCommit={(value) => onTransform({ scale: value })}
+        value={draftTransform.scale}
+        onChange={updateDraftScale}
+        onApply={() => onTransform({ scale: clampScale(numberOrFallback(draftTransform.scale, selectedTransform.scale)) })}
         inputProps={{ "data-viewer-scale-input": "" }}
       />
-      <LinkedNumberField
+      <DraftNumberField
         label="サイズ(px)"
         disabled={disabled}
-        value={scaleToBoardSize(scale)}
-        onCommit={(value) => onTransform({ scale: boardSizeToScale(value) })}
+        value={draftTransform.size}
+        onChange={updateDraftSize}
+        onApply={() =>
+          onTransform({ scale: boardSizeToScale(numberOrFallback(draftTransform.size, scaleToBoardSize(scale))) })
+        }
         inputProps={{ "data-viewer-size-input": "" }}
       />
-      <LinkedNumberField
+      <DraftNumberField
         label="位置X"
         disabled={disabled}
-        value={Math.round(selectedTransform.x)}
-        onCommit={(value) => onTransform({ x: value })}
+        value={draftTransform.x}
+        onChange={(value) => setDraftTransform((current) => ({ ...current, x: value }))}
+        onApply={() => onTransform({ x: numberOrFallback(draftTransform.x, selectedTransform.x) })}
         inputProps={{ "data-viewer-x": "" }}
       />
-      <LinkedNumberField
+      <DraftNumberField
         label="位置Y"
         disabled={disabled}
-        value={Math.round(selectedTransform.y)}
-        onCommit={(value) => onTransform({ y: value })}
+        value={draftTransform.y}
+        onChange={(value) => setDraftTransform((current) => ({ ...current, y: value }))}
+        onApply={() => onTransform({ y: numberOrFallback(draftTransform.y, selectedTransform.y) })}
         inputProps={{ "data-viewer-y": "" }}
       />
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -272,49 +306,26 @@ function ViewerToolbar({
   );
 }
 
-function LinkedNumberField({ label, disabled, value, onCommit, inputProps }) {
-  const [draft, setDraft] = useState(String(value));
-  const [focused, setFocused] = useState(false);
-  const lastCommittedRef = useRef(Number(value));
-
-  useEffect(() => {
-    if (!focused) {
-      setDraft(String(value));
-      lastCommittedRef.current = Number(value);
-    }
-  }, [focused, value]);
-
-  useEffect(() => {
-    if (!focused || draft.trim() === "") return undefined;
-    const timeout = setTimeout(() => {
-      commitNumber(draft, onCommit, lastCommittedRef);
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [draft, focused, onCommit]);
-
-  const commit = () => {
-    commitNumber(draft, onCommit, lastCommittedRef);
-    setFocused(false);
-  };
-
+function DraftNumberField({ label, disabled, value, onChange, onApply, inputProps }) {
   return (
-    <TextField
-      label={label}
-      type="text"
-      disabled={disabled}
-      value={draft}
-      onFocus={(event) => {
-        setFocused(true);
-        event.target.select();
-      }}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur();
-      }}
-      size="small"
-      slotProps={{ htmlInput: { inputMode: "numeric", ...inputProps } }}
-    />
+    <Stack direction="row" spacing={1} alignItems="center">
+      <TextField
+        label={label}
+        type="text"
+        disabled={disabled}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onApply();
+        }}
+        size="small"
+        slotProps={{ htmlInput: { inputMode: "numeric", ...inputProps } }}
+        sx={{ minWidth: 0, flex: 1 }}
+      />
+      <Button disabled={disabled} onClick={onApply} sx={{ minWidth: 56, px: 1 }}>
+        反映
+      </Button>
+    </Stack>
   );
 }
 
@@ -435,11 +446,19 @@ function resolveResizeHandle(event) {
   return "";
 }
 
-function commitNumber(raw, onCommit, lastCommittedRef) {
+function createViewerDraft(transform) {
+  const scale = Math.round(transform.scale);
+  return {
+    scale: String(scale),
+    size: String(scaleToBoardSize(scale)),
+    x: String(Math.round(transform.x)),
+    y: String(Math.round(transform.y))
+  };
+}
+
+function numberOrFallback(raw, fallback) {
   const number = Number(raw);
-  if (!Number.isFinite(number) || number === lastCommittedRef.current) return;
-  lastCommittedRef.current = number;
-  onCommit(number);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function resizeTransformFromPointer(handle, start, startVisualWidth, startRight, startBottom, aspectRatio, dx, dy) {
