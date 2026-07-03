@@ -12,6 +12,7 @@
 - `data_model.md`: データ構造、保存対象、削除対象、設定値。
 - `button_list.md`: 画面ごとのボタン一覧。
 - `user_guide.txt`: 起動、終了、基本操作の説明。
+- `problems.md`: 点検で見つかった問題点の一覧（直すべき/直さなくていい/解決済み）。
 
 ## 1. Tech Stack
 
