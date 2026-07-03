@@ -223,6 +223,9 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
     case "history:redo":
       return redo(board);
 
+    case "game:reset":
+      return resetGame(board);
+
     case "board:rename":
       return {
         board: {
@@ -285,12 +288,47 @@ function redo(board) {
   return { board: next, changed: true };
 }
 
+function resetGame(board) {
+  const next = structuredCloneCompat(board);
+  next.gameState = createDefaultGameState();
+  next.playerSettings = resetPlayerGameValues(next.playerSettings);
+  next.undoHistory = [];
+  next.redoHistory = [];
+  next.updatedAt = new Date().toISOString();
+  return { board: next, changed: true };
+}
+
 function snapshotBoard(board) {
   return structuredCloneCompat({
     gameState: board.gameState,
     playerSettings: board.playerSettings,
     displayOptions: board.displayOptions
   });
+}
+
+function resetPlayerGameValues(playerSettings) {
+  const next = structuredCloneCompat(playerSettings || createDefaultPlayerSettings());
+  next.currentBattingOrderIndex = { away: 0, home: 0 };
+  for (const side of [SIDES.AWAY, SIDES.HOME]) {
+    const sideSettings = next[side];
+    if (!sideSettings) continue;
+    sideSettings.battingOrder = (sideSettings.battingOrder || []).map((player, index) => ({
+      ...player,
+      battingOrderNumber: Number(player?.battingOrderNumber) || index + 1,
+      homeRuns: 0,
+      hits: 0,
+      strikeoutsSwinging: 0,
+      strikeoutsLooking: 0,
+      outs: 0,
+      others: 0
+    }));
+    sideSettings.pitchers = (sideSettings.pitchers || []).map((pitcher, index) => ({
+      ...pitcher,
+      pitchCount: 0,
+      order: Number.isFinite(Number(pitcher?.order)) ? Number(pitcher.order) : index + 1
+    }));
+  }
+  return next;
 }
 
 function applyPlateAppearance(board, result, settings) {

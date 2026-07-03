@@ -116,6 +116,7 @@ ABS表示オプションが有効な場合に使う。
 
 - 戻る（キーボード: Ctrl+Z / Cmd+Z）
 - 進む（キーボード: Ctrl+Shift+Z / Cmd+Shift+Z）
+- スコアリセット
 
 ### 4.9 Menu Buttons
 

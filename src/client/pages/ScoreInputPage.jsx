@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useServerState } from "../api/useServerState.js";
+import ConfirmDialog from "../components/common/ConfirmDialog.jsx";
 import TopBar from "../components/common/TopBar.jsx";
 import EditMenu from "../components/menus/EditMenu.jsx";
 import PlayerMenu from "../components/menus/PlayerMenu.jsx";
@@ -81,6 +82,7 @@ export default function ScoreInputPage() {
   const [message, setMessage] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const board = (state.boards || []).find((item) => item.id === boardId);
 
   const runAction = async (type, payload = {}) => {
@@ -211,6 +213,9 @@ export default function ScoreInputPage() {
           <ControlGroup title="履歴とメニュー">
             <ActionButton label="戻る" type="history:undo" disabled={pending} onAction={runAction} />
             <ActionButton label="進む" type="history:redo" disabled={pending} onAction={runAction} />
+            <Button color="error" disabled={pending} onClick={() => setResetConfirmOpen(true)}>
+              スコアリセット
+            </Button>
             <Button onClick={() => setEditOpen(true)}>編集メニュー</Button>
             <Button onClick={() => setPlayerOpen(true)}>選手名メニュー</Button>
           </ControlGroup>
@@ -237,6 +242,17 @@ export default function ScoreInputPage() {
           refresh={refresh}
         />
       ) : null}
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title="スコアをリセットしますか？"
+        message="試合の進行状態、得点、カウント、ランナー、ABS、成績、投球数を初期状態に戻します。編集メニューの設定と選手名は残ります。"
+        confirmLabel="リセットする"
+        onConfirm={() => {
+          setResetConfirmOpen(false);
+          runAction("game:reset");
+        }}
+        onClose={() => setResetConfirmOpen(false)}
+      />
       <Snackbar
         open={Boolean(message)}
         autoHideDuration={4000}
