@@ -1,10 +1,11 @@
 // @ts-check
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -16,12 +17,13 @@ import TopBar from "../components/common/TopBar.jsx";
 export default function PresetReorderPage() {
   const { state, refresh } = useServerState();
   const [orderedIds, setOrderedIds] = useState(() => (state.presets || []).map((preset) => preset.id));
-  const [draggingId, setDraggingId] = useState("");
+  const [dragState, setDragState] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const listRef = useRef(null);
   const orderedIdsRef = useRef(orderedIds);
+  const flipBeforeRef = useRef(null);
 
   useEffect(() => {
     setOrderedIds((current) => {
@@ -33,17 +35,38 @@ export default function PresetReorderPage() {
 
   const presetsById = new Map((state.presets || []).map((preset) => [preset.id, preset]));
   const orderedPresets = orderedIds.map((id) => presetsById.get(id)).filter(Boolean);
+  const draggingId = dragState?.presetId || "";
+  const floatingPreset = draggingId ? presetsById.get(draggingId) : null;
+
+  useLayoutEffect(() => {
+    if (!flipBeforeRef.current || !listRef.current) return;
+    const before = flipBeforeRef.current;
+    flipBeforeRef.current = null;
+    animateListReorder(listRef.current, before);
+  }, [orderedIds]);
 
   const startDrag = (event, presetId) => {
-    setDraggingId(presetId);
+    const item = event.currentTarget.closest("[data-preset-reorder-item]");
+    if (!item) return;
+    const rect = item.getBoundingClientRect();
+    setDragState({
+      presetId,
+      pointerId: event.pointerId,
+      pointerY: event.clientY,
+      offsetY: event.clientY - rect.top,
+      left: rect.left,
+      width: rect.width
+    });
     event.currentTarget.setPointerCapture?.(event.pointerId);
     event.preventDefault();
   };
 
   const moveDrag = (event) => {
-    if (!draggingId || !listRef.current) return;
+    if (!dragState || !listRef.current) return;
+    setDragState((current) => current ? { ...current, pointerY: event.clientY } : current);
     const placement = getTargetPlacement(listRef.current, event.clientY, draggingId);
     if (!placement || placement.targetId === draggingId) return;
+    flipBeforeRef.current = measureItemTops(listRef.current);
     setOrderedIds((current) => {
       const next = moveToPlacement(current, draggingId, placement);
       orderedIdsRef.current = next;
@@ -52,10 +75,12 @@ export default function PresetReorderPage() {
   };
 
   const finishDrag = async (event) => {
-    if (!draggingId) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (!dragState) return;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
     const nextIds = orderedIdsRef.current;
-    setDraggingId("");
+    setDragState(null);
     await saveOrder(nextIds);
   };
 
@@ -94,7 +119,7 @@ export default function PresetReorderPage() {
               {saving ? "保存中" : "ドラッグで並べ替え"}
             </Typography>
           </Stack>
-          <Stack ref={listRef} spacing={1.25} data-preset-reorder-list>
+          <Stack ref={listRef} spacing={1.25} data-preset-reorder-list sx={{ position: "relative" }}>
             {orderedPresets.length ? (
               orderedPresets.map((preset, index) => (
                 <Card
@@ -102,21 +127,19 @@ export default function PresetReorderPage() {
                   variant="outlined"
                   data-preset-reorder-item={preset.id}
                   sx={{
-                    opacity: draggingId && draggingId !== preset.id ? 0.82 : 1,
-                    boxShadow: draggingId === preset.id ? "0 18px 38px rgba(15, 23, 42, 0.28)" : "0 2px 10px rgba(15, 23, 42, 0.08)",
-                    borderColor: draggingId === preset.id ? "primary.main" : "divider",
-                    bgcolor: draggingId === preset.id ? "rgba(25, 118, 210, 0.08)" : "background.paper",
+                    opacity: draggingId === preset.id ? 0.18 : 1,
+                    boxShadow: "0 2px 10px rgba(15, 23, 42, 0.08)",
+                    borderColor: draggingId === preset.id ? "transparent" : "divider",
+                    bgcolor: "background.paper",
                     borderRadius: 3,
                     touchAction: "none",
-                    transform: draggingId === preset.id ? "scale(1.018)" : "scale(1)",
-                    transition: "transform 160ms ease, box-shadow 160ms ease, opacity 140ms ease, border-color 160ms ease",
+                    transition: "box-shadow 180ms ease, opacity 140ms ease, border-color 160ms ease",
                     willChange: "transform"
                   }}
                 >
                   <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Button
-                        variant="outlined"
+                      <IconButton
                         disabled={saving}
                         onPointerDown={(event) => startDrag(event, preset.id)}
                         onPointerMove={moveDrag}
@@ -125,19 +148,16 @@ export default function PresetReorderPage() {
                         data-drag-preset={preset.id}
                         aria-label={`${preset.presetName || "Team Preset"}を並べ替え`}
                         sx={{
-                          minWidth: 56,
                           width: 56,
                           height: 56,
-                          borderRadius: 2.5,
+                          borderRadius: 3,
                           cursor: draggingId === preset.id ? "grabbing" : "grab",
                           touchAction: "none",
-                          fontSize: 22,
-                          lineHeight: 1,
-                          px: 0
+                          color: "text.secondary"
                         }}
                       >
-                        ⋮⋮
-                      </Button>
+                        <DragHandleLines />
+                      </IconButton>
                       <Box sx={{ minWidth: 0 }}>
                         <Typography fontWeight="bold" noWrap>
                           {index + 1}. {preset.presetName || "Team Preset"}
@@ -154,6 +174,49 @@ export default function PresetReorderPage() {
               <Alert severity="info">チームプリセットがありません。</Alert>
             )}
           </Stack>
+          {floatingPreset && dragState ? (
+            <Card
+              variant="outlined"
+              sx={{
+                position: "fixed",
+                left: `${dragState.left}px`,
+                top: `${dragState.pointerY - dragState.offsetY}px`,
+                width: `${dragState.width}px`,
+                zIndex: 1400,
+                pointerEvents: "none",
+                borderRadius: 3,
+                borderColor: "primary.main",
+                bgcolor: "background.paper",
+                boxShadow: "0 22px 44px rgba(15, 23, 42, 0.32)",
+                transform: "scale(1.025)",
+                transition: "box-shadow 140ms ease, transform 140ms ease"
+              }}
+            >
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      display: "grid",
+                      placeItems: "center",
+                      color: "text.secondary"
+                    }}
+                  >
+                    <DragHandleLines />
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography fontWeight="bold" noWrap>
+                      {orderedIds.indexOf(floatingPreset.id) + 1}. {floatingPreset.presetName || "Team Preset"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {floatingPreset.abbreviation || floatingPreset.name} / {floatingPreset.name || ""}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          ) : null}
         </Stack>
       </Box>
       <Snackbar
@@ -162,6 +225,25 @@ export default function PresetReorderPage() {
         onClose={() => setMessage("")}
         message={message}
       />
+    </Box>
+  );
+}
+
+function DragHandleLines() {
+  return (
+    <Box sx={{ width: 24, display: "grid", gap: "4px" }} aria-hidden="true">
+      {[0, 1, 2].map((line) => (
+        <Box
+          key={line}
+          component="span"
+          sx={{
+            display: "block",
+            height: 2,
+            borderRadius: 999,
+            bgcolor: "currentColor"
+          }}
+        />
+      ))}
     </Box>
   );
 }
@@ -184,6 +266,36 @@ function getTargetPlacement(list, clientY, draggingId) {
   }
   const last = items.at(-1)?.dataset.presetReorderItem || "";
   return last ? { targetId: last, before: false } : null;
+}
+
+function measureItemTops(list) {
+  const result = new Map();
+  for (const item of list.querySelectorAll("[data-preset-reorder-item]")) {
+    result.set(item.dataset.presetReorderItem || "", item.getBoundingClientRect().top);
+  }
+  return result;
+}
+
+function animateListReorder(list, before) {
+  for (const item of list.querySelectorAll("[data-preset-reorder-item]")) {
+    const id = item.dataset.presetReorderItem || "";
+    const previousTop = before.get(id);
+    if (previousTop === undefined) continue;
+    const currentTop = item.getBoundingClientRect().top;
+    const delta = previousTop - currentTop;
+    if (!delta) continue;
+    if (typeof item.animate !== "function") continue;
+    item.animate(
+      [
+        { transform: `translateY(${delta}px)` },
+        { transform: "translateY(0)" }
+      ],
+      {
+        duration: 190,
+        easing: "cubic-bezier(0.2, 0, 0, 1)"
+      }
+    );
+  }
 }
 
 function moveToPlacement(ids, movingId, placement) {
