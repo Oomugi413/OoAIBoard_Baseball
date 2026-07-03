@@ -14,7 +14,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const distDir = path.join(rootDir, "dist");
-const legacyClientDir = path.join(rootDir, "src", "client_legacy");
 const storageDir = path.join(rootDir, "storage", "data");
 const uploadRootDir = path.join(rootDir, "storage", "uploads");
 const teamLogoDir = path.join(uploadRootDir, "team-logos");
@@ -247,25 +246,6 @@ async function serveStatic(req, res, url) {
       return;
     }
     await serveFile(req, res, uploadCandidate);
-    return;
-  }
-
-  // React移行中は、旧クライアントを /legacy で併存配信する（第2期の手順10で削除予定）。
-  if (pathname === "/legacy") {
-    res.writeHead(302, { Location: "/legacy/" });
-    res.end();
-    return;
-  }
-  if (pathname.startsWith("/legacy/")) {
-    let legacyPath = pathname.slice("/legacy".length);
-    if (legacyPath === "/") legacyPath = "/index.html";
-    const legacyCandidate = path.normalize(path.join(legacyClientDir, legacyPath));
-    if (!legacyCandidate.startsWith(legacyClientDir)) {
-      res.writeHead(403);
-      res.end();
-      return;
-    }
-    await serveFile(req, res, legacyCandidate);
     return;
   }
 

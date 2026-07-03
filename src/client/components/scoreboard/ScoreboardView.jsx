@@ -2,8 +2,7 @@
 
 /**
  * スコアボード本体（表示専用）。
- * 旧クライアント(src/client_legacy/app.js の scoreboardHtml 系関数)のSVG構造を
- * そのままJSXへ移植したもの。見た目・座標・配色は変更しない。
+ * Broadcast LEDデザインのSVG構造をJSXで描画する。
  * @param {{ board: any }} props
  */
 export default function ScoreboardView({ board }) {

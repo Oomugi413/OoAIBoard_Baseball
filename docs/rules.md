@@ -28,10 +28,10 @@
 
 - 実行環境: Node.js（LTS）。npm 同梱。
 - サーバー: Node標準の `node:http`。追加のWebフレームワークは使わない。
-- 静的配信: `node:http` からビルド成果物の `dist/` を配信する（React移行中は旧クライアントを `/legacy` で併存配信する）。
+- 静的配信: `node:http` からビルド成果物の `dist/` を配信する。
 - リアルタイム反映: SSE（Server-Sent Events / ブラウザ標準の `EventSource`）。
 - フロントエンド: React ＋ MUI（Material UI）。Androidアプリに近いモダンなUI部品（ダイアログ、ドロワー、スライダー、スイッチ、スナックバーなど）を使い、フォームの多い操作画面を宣言的な状態管理で作る。
-- ルーティング: react-router-dom（HashRouter）。旧クライアントと同じ `#/viewer` 形式のURLを保ち、未移行ルートは `/legacy` へリダイレクトする。
+- ルーティング: react-router-dom（HashRouter）。`#/viewer` のようなURL形式で各Reactページを表示する。
 - ビルド: Vite。`npm start` が「ビルド → サーバー起動」を行い、利用者の手順は `npm install` と `npm start` のまま変えない。ビルド成果物（`dist/`）はGit管理対象外とし、サーバーが配信する。
 - 型の安全性: TypeScriptは導入せず、JavaScript（JSX）＋ JSDoc型注釈＋`// @ts-check`（`jsconfig.json`）でエディタ上の型チェックを得る。
 - 保存: 単一のJSONファイル（`storage/data/app.json`）。書き込みは一時ファイル→リネームのアトミック書き込みで壊れないようにする。
@@ -115,7 +115,7 @@ baseball-scoreboard/
       viewer/
         viewerSettings.js     # 端末ごとの表示プロパティ(localStorage)と入出力
       fonts/                  # 自己ホストのWebフォント（同梱）
-    server/                   # ローカルサーバー（node:http）。移行完了後は dist/ を静的配信する
+    server/                   # ローカルサーバー（node:http）。dist/ を静的配信する
       index.mjs               # サーバ起動、静的配信、APIルーティング、SSE
       lib/
         store.js              # app.json の読み書き（アトミック書き込み）
@@ -143,7 +143,7 @@ baseball-scoreboard/
 
 - `docs/` は設計ファイル群。`rules.md`（本ファイル）にプロジェクト全体のルールとファイル構成、`scoreboard_design.md` に見た目、`operation.md` に実装したい機能と操作ルール、`data_model.md` にデータ構造を置く。
 - `src/client/` はReact ＋ MUIで作るブラウザ画面一式。Viteで `dist/` にビルドし、サーバーが配信する。`pages/` に各ページ、`components/menus/` にメニュー（MUI Drawerによるオーバーレイ）、`components/scoreboard/` に表示専用のスコアボード描画（インラインSVG）を置く。スコアボード描画は操作ボタンを含めず、Viewer PageとScore Input Pageで同じ見た目を再利用する。
-- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、静的配信・APIルーティング・SSE・ロゴアップロード保存をまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除を扱う。React移行によるサーバーの変更は、静的配信先を `dist/` に切り替える点だけで、REST・SSEのAPIは変わらない。
+- `src/server/` はローカルサーバー、保存処理、リアルタイム通信。`index.mjs` は `node:http` でサーバーを起動し、`dist/` の静的配信・APIルーティング・SSE・ロゴアップロード保存をまとめる。`lib/store.js` は `app.json` をアトミック書き込みで安全に読み書きし、`lib/cleanup.js` は自動削除を扱う。
 - `src/shared/` はクライアント/サーバー双方で使う定義とルール。`scoringRules.mjs` は試合状態と操作（applyAction）を持ち、単体テストの対象にする。
 - `storage/` は実行時に生成されるJSONデータとロゴ画像。Git管理対象から外す。
 
@@ -163,20 +163,20 @@ baseball-scoreboard/
 
 操作画面のUIを React ＋ MUI で作り直す。進め方の方針:
 
-- 移行中もアプリが使える状態を保つ。旧クライアントは `/legacy` パスで配信し続け、全ページの移植が終わってから削除する。
+- 移行中もアプリが使える状態を保つ。全ページの移植が終わった後は旧クライアントを削除し、`dist/` のみを配信する。
 - サーバーのREST・SSE APIは変更しない。
 - 手順は上から順に1つずつ実行し、各手順後のテストに成功したら本リストを更新してGitに保存する。
 
-1. [済] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更し、旧クライアントを `/legacy` で併存配信する。Home Pageだけ移植して起動確認する。（React 19 / MUI 9 / Vite 8 を導入。旧クライアントは `src/client_legacy/` へ移動。単体テスト、ビルド、新Home・旧画面・API・ロゴ配信の動作確認済み）
-2. [済] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。（`api/client.js`・`api/useServerState.js`・`ConfirmDialog`・`TopBar`・`LegacyRedirect` を追加し、react-router-dom を導入。未移行ルートは `/legacy` へ自動リダイレクト。Homeにボード数のライブ表示を付け、リロードなしのSSE反映・リダイレクト・不明ルートのHome復帰をヘッドレスブラウザで確認済み）
-3. [済] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。（`components/scoreboard/ScoreboardView.jsx` を追加。座標・配色・グラデーション・フィルターを1:1移植し、`svgId` でボードごとにgradient/filter idを分離。CSSは `styles/scoreboard.css` に切り出し。検証用に一時ページ `/preview`（`ScoreboardPreviewPage.jsx`）を追加し、旧クライアント `/legacy` と並べてスクリーンショット比較、得点・ランナー・カウント・アウト・ABS・一時演出オーバーレイの一致を確認済み。`/preview` は手順4以降の実ページで置き換わるまでの暫定検証用）
+1. [済] React + MUI + Vite の雛形を作る。`npm start` を「ビルド → サーバー起動」へ変更する。Home Pageだけ移植して起動確認する。（React 19 / MUI 9 / Vite 8 を導入。単体テスト、ビルド、新Home・API・ロゴ配信の動作確認済み。旧クライアントは手順10で削除済み）
+2. [済] 共通基盤を移植する。APIクライアント、SSE購読フック、ルーティング（HashRouter）、MUIテーマ、削除確認ダイアログなどの共通部品。（`api/client.js`・`api/useServerState.js`・`ConfirmDialog`・`TopBar` を追加し、react-router-dom を導入。Homeにボード数のライブ表示を付け、リロードなしのSSE反映・不明ルートのHome復帰をヘッドレスブラウザで確認済み）
+3. [済] スコアボード表示コンポーネントを移植する。既存のインラインSVG（Broadcast LEDデザイン）をJSXへ移し、見た目が変わらないことを確認する。（`components/scoreboard/ScoreboardView.jsx` を追加。座標・配色・グラデーション・フィルターを1:1移植し、`svgId` でボードごとにgradient/filter idを分離。CSSは `styles/scoreboard.css` に切り出し。検証用の一時ページは手順10で削除済み）
 4. [済] Control List Page を移植する。一覧、作成、名称変更、削除確認（MUI Dialog）。（`pages/ControlListPage.jsx` を追加し `/control` ルートを差し替え。`/control/:boardId` は手順5まで旧画面へのリダイレクトを維持。一覧は視覚プレビューなしの対戦テキスト表示、名称変更はローカル下書き＋blur/Enter保存でSSE更新と衝突しない設計、削除は ConfirmDialog（ボード名＋消えるデータの警告）。作成→遷移・名称変更・削除・SSEライブ反映を実ブラウザ操作で確認済み）
 5. [済] Score Input Page の操作ボタン群を移植する。操作ミスを防ぐグループ分けを保つ。（`pages/ScoreInputPage.jsx` を追加し `/control/:boardId` ルートを差し替え。スコアボード表示、投球、打席結果、アウト、チェンジ、ランナー、得点、ABS、戻る/進むの操作をReact + MUIで実装。編集メニュー・選手名メニュー本体は手順6・7へ引き継ぎ。単体テスト、Viteビルド、実ブラウザ操作確認済み）
 6. [済] 編集メニューを MUI Drawer のオーバーレイとして再実装する。閉じるボタンを付け、パソコンでは操作ボタンの上に重ねて表示する。フォームを状態管理に載せ替え、「プリセット保存で既存設定がリセットされる」不具合をここで根治する。あわせて、チーム略称テキストの拡大率設定を編集メニューに追加する。（`components/menus/EditMenu.jsx` を追加し、Score Input Pageから開く構成へ変更。スコアボード名、チーム名、略称、略称拡大率、チーム色、文字色、ロゴ画像、プリセット読込/保存、ABS表示、対戦選手表示を実装。単体テスト、Viteビルド、実ブラウザ操作確認済み）
 7. [済] 選手名メニューを MUI Drawer のオーバーレイとして再実装する。先攻/後攻のタブ、打者1-9番、ピッチャー追加・一覧編集。（`components/menus/PlayerMenu.jsx` を追加し、Score Input Pageから開く構成へ変更。打者名、守備位置、代打チェック、投手追加、投手名、球数編集を実装。単体テスト、Viteビルド、実ブラウザ操作確認済み）
 8. [済] Settings Page とプリセット並べ替え画面を移植する。プリセット作成・編集・削除、ドラッグ並べ替え、ロゴアップロード、未使用ロゴ削除。（`pages/SettingsPage.jsx` と `pages/PresetReorderPage.jsx` を追加し、`/settings` と `/settings/presets/reorder` をReact画面へ差し替え。全体設定保存、プリセット編集保存、ロゴアップロード、削除確認、未使用ロゴ削除、ドラッグ並べ替えを実装。単体テスト、Viteビルド、実ブラウザ操作でプリセット編集保存を重点確認済み）
 9. [済] Viewer Page を移植する。中央ドラッグ移動、端ドラッグ拡大縮小、数値入力、最後に調整したボードの前面表示、表示プロパティ入出力の既存挙動を維持する。（`pages/ViewerPage.jsx` と `viewer/viewerSettings.js` を追加し、`/viewer` ルートをReact画面へ差し替え。背景色、ボードごとの拡大率、幅・高さ・位置の数値入力、中央ドラッグ移動、端ドラッグ拡大縮小、最後に調整した順の前面表示、表示プロパティの書き出し/読み込みを実装。対戦相手表示OFF時はスコアボードの縦幅を縮小。上部ナビゲーションは左サイドメニューへ移動。単体テスト、Viteビルド、手動操作確認済み）
-10. [未] 旧クライアント（`/legacy`）を削除し、配信を `dist/` のみにする。`user_guide.txt` の起動手順（`npm install` が必須になる等）を実装に合わせて更新する。
+10. [済] 旧クライアントを削除し、配信を `dist/` のみにする。`user_guide.txt` の起動手順（`npm install` が必須になる等）を実装に合わせて更新する。（旧クライアント、旧画面リダイレクト部品、検証用プレビュー画面、検証用ルート、サーバーの旧画面配信分岐、Homeとユーザーガイドの移行中表記を削除。単体テスト、Viteビルド確認済み）
 11. [未] 戻る、進むのキーボードショートカット（Ctrl+Z / Cmd+Z、Ctrl+Shift+Z / Cmd+Shift+Z）を追加する。
 12. [未] 複数端末操作の競合処理を確認する。後勝ちの動作と、SSE更新が編集中フォームの入力を消さないことを確認する。（第1期11の引き継ぎ）
 13. [未] 閲覧画面の完全非表示UIモードを将来追加できる余地を残す。（第1期17の引き継ぎ、優先度最下位）

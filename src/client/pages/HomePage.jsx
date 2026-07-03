@@ -39,9 +39,6 @@ export default function HomePage() {
               スコアボードを動かす
             </Button>
           </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-            画面は新しいUIへ移行中です。移行が完了していない画面は、従来の画面が開きます。
-          </Typography>
         </CardContent>
       </Card>
     </Box>

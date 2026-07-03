@@ -11,7 +11,6 @@ import ControlListPage from "./pages/ControlListPage.jsx";
 import ScoreInputPage from "./pages/ScoreInputPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import PresetReorderPage from "./pages/PresetReorderPage.jsx";
-import ScoreboardPreviewPage from "./pages/ScoreboardPreviewPage.jsx";
 import "./styles/scoreboard.css";
 
 createRoot(document.getElementById("root")).render(
@@ -22,7 +21,6 @@ createRoot(document.getElementById("root")).render(
         <HashRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/preview" element={<ScoreboardPreviewPage />} />
             <Route path="/viewer" element={<ViewerPage />} />
             <Route path="/control" element={<ControlListPage />} />
             <Route path="/control/:boardId" element={<ScoreInputPage />} />

@@ -16,7 +16,7 @@ import ConfirmDialog from "../components/common/ConfirmDialog.jsx";
 import TopBar from "../components/common/TopBar.jsx";
 
 /**
- * 対戦カードの要約テキストを組み立てる（legacyのmatchupSummaryと同等）。
+ * 対戦カードの要約テキストを組み立てる。
  * @param {any} board
  */
 function matchupSummary(board) {
