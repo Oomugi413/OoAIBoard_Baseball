@@ -205,7 +205,7 @@ function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
 
 function InningSvg({ svgId, gameState }) {
   const triangle =
-    gameState.inningHalf === "top" ? "88,244 116,296 60,296" : "60,244 116,244 88,296";
+    gameState.inningHalf === "top" ? "88,244 116,296 60,296" : "60,452 116,452 88,504";
 
   return (
     <>

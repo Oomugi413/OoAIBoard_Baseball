@@ -149,7 +149,7 @@ export default function ScoreInputPage() {
         component="main"
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", lg: "minmax(360px, 560px) 1fr" },
+          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(360px, 560px) 1fr" },
           alignItems: "start",
           gap: 2,
           p: { xs: 1, sm: 2 },
