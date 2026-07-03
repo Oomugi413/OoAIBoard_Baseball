@@ -3,3 +3,4 @@ storage/*.log
 storage/uploads/
 node_modules/
 dist/
+logs
