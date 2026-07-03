@@ -148,6 +148,12 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
         incrementPitchCount(draft);
       });
 
+    case "pitch:foul":
+      return withHistory(board, (draft) => {
+        draft.gameState.strikes = clamp(draft.gameState.strikes + (draft.gameState.strikes < 2 ? 1 : 0), 0, 3);
+        incrementPitchCount(draft);
+      });
+
     case "count:balls":
       return withHistory(board, (draft) => {
         draft.gameState.balls = clamp(draft.gameState.balls + numberOrZero(payload.delta), 0, 4);
@@ -156,6 +162,12 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
     case "count:strikes":
       return withHistory(board, (draft) => {
         draft.gameState.strikes = clamp(draft.gameState.strikes + numberOrZero(payload.delta), 0, 3);
+      });
+
+    case "count:reset":
+      return withHistory(board, (draft) => {
+        draft.gameState.balls = 0;
+        draft.gameState.strikes = 0;
       });
 
     case "plate:result":
@@ -354,6 +366,14 @@ function applyPlateAppearance(board, result, settings) {
     case "hit":
       addBatterStat(board, "hits");
       break;
+    case "walk":
+      advanceForcedRunners(board);
+      addBatterStat(board, "others");
+      break;
+    case "hitByPitch":
+      advanceForcedRunners(board);
+      addBatterStat(board, "others");
+      break;
     case "out":
       addBatterStat(board, "outs");
       break;
@@ -449,6 +469,21 @@ function clearRunners(gameState) {
   for (const base of BASES) {
     gameState.runners[base] = false;
   }
+}
+
+function advanceForcedRunners(board) {
+  const runners = board.gameState.runners;
+  const attackingSide = getAttackingSide(board.gameState);
+  if (runners.first && runners.second && runners.third) {
+    board.gameState.score[attackingSide] += 1;
+  }
+  if (runners.first && runners.second) {
+    runners.third = true;
+  }
+  if (runners.first) {
+    runners.second = true;
+  }
+  runners.first = true;
 }
 
 function updateTeam(board, payload) {
@@ -565,7 +600,11 @@ function patchPlayers(board, payload) {
       const index = Number(rawIndex);
       const batter = sideSettings.battingOrder?.[index];
       if (!batter) continue;
-      if (Object.hasOwn(values, "playerName")) batter.playerName = String(values.playerName || "");
+      if (Object.hasOwn(values, "playerName")) {
+        const playerName = String(values.playerName || "");
+        if (batter.playerName !== playerName) resetBatterStats(batter);
+        batter.playerName = playerName;
+      }
       if (Object.hasOwn(values, "position")) batter.position = String(values.position || "");
       if (Object.hasOwn(values, "isPinchHitter")) batter.isPinchHitter = Boolean(values.isPinchHitter);
     }
@@ -595,6 +634,15 @@ function patchPlayers(board, payload) {
 
   next.updatedAt = new Date().toISOString();
   return { board: next, changed: true };
+}
+
+function resetBatterStats(batter) {
+  batter.homeRuns = 0;
+  batter.hits = 0;
+  batter.strikeoutsSwinging = 0;
+  batter.strikeoutsLooking = 0;
+  batter.outs = 0;
+  batter.others = 0;
 }
 
 function normalizeSide(side) {

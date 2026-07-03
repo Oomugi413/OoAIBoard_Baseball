@@ -33,12 +33,16 @@ function ControlGroup({ title, children }) {
         <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
           {title}
         </Typography>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} useFlexGap flexWrap="wrap">
           {children}
         </Stack>
       </CardContent>
     </Card>
   );
+}
+
+function ControlBreak() {
+  return <Box sx={{ flexBasis: "100%", height: 0 }} />;
 }
 
 /**
@@ -67,7 +71,13 @@ function ActionButton({
       color={color}
       disabled={disabled}
       onClick={() => onAction(type, payload)}
-      sx={{ minWidth: 96 }}
+      sx={{
+        minWidth: { xs: 78, sm: 96 },
+        flex: { xs: "1 1 calc(50% - 8px)", sm: "0 0 auto" },
+        px: { xs: 1, sm: 2 },
+        whiteSpace: "normal",
+        lineHeight: 1.2
+      }}
     >
       {label}
     </Button>
@@ -142,25 +152,40 @@ export default function ScoreInputPage() {
           gridTemplateColumns: { xs: "1fr", lg: "minmax(360px, 560px) 1fr" },
           alignItems: "start",
           gap: 2,
-          p: 2
+          p: { xs: 1, sm: 2 },
+          overflowX: "hidden"
         }}
       >
-        <Box sx={{ position: { lg: "sticky" }, top: { lg: 80 } }}>
+        <Box
+          sx={{
+            position: { lg: "sticky" },
+            top: { lg: 80 },
+            width: "100%",
+            minWidth: 0,
+            "& .scoreboard": { minWidth: 0 }
+          }}
+        >
           <ScoreboardView board={board} />
         </Box>
         <Stack spacing={1.5}>
           <ControlGroup title="投球">
-            <ActionButton label="ボール" type="pitch:ball" disabled={pending} variant="contained" onAction={runAction} />
-            <ActionButton label="ストライク" type="pitch:strike" disabled={pending} variant="contained" onAction={runAction} />
+            <ActionButton label="ボール" type="pitch:ball" disabled={pending} variant="contained" color="success" onAction={runAction} />
+            <ActionButton label="ストライク" type="pitch:strike" disabled={pending} variant="contained" color="warning" onAction={runAction} />
+            <ActionButton label="ファウル" type="pitch:foul" disabled={pending} variant="contained" color="warning" onAction={runAction} />
             <ActionButton label="B -1" type="count:balls" payload={{ delta: -1 }} disabled={pending} onAction={runAction} />
+            <ControlBreak />
             <ActionButton label="B +1" type="count:balls" payload={{ delta: 1 }} disabled={pending} onAction={runAction} />
             <ActionButton label="S -1" type="count:strikes" payload={{ delta: -1 }} disabled={pending} onAction={runAction} />
             <ActionButton label="S +1" type="count:strikes" payload={{ delta: 1 }} disabled={pending} onAction={runAction} />
+            <ActionButton label="カウントRS" type="count:reset" disabled={pending} onAction={runAction} />
           </ControlGroup>
 
           <ControlGroup title="打席結果">
             <ActionButton label="HR" type="plate:result" payload={{ result: "homeRun" }} disabled={pending} variant="contained" color="error" onAction={runAction} />
-            <ActionButton label="ヒット" type="plate:result" payload={{ result: "hit" }} disabled={pending} variant="contained" color="success" onAction={runAction} />
+            <ActionButton label="ヒット" type="plate:result" payload={{ result: "hit" }} disabled={pending} variant="contained" color="info" onAction={runAction} />
+            <ActionButton label="四球" type="plate:result" payload={{ result: "walk" }} disabled={pending} variant="contained" color="success" onAction={runAction} />
+            <ActionButton label="死球" type="plate:result" payload={{ result: "hitByPitch" }} disabled={pending} onAction={runAction} />
+            <ControlBreak />
             <ActionButton label="凡退" type="plate:result" payload={{ result: "out" }} disabled={pending} onAction={runAction} />
             <ActionButton label="空三振" type="plate:result" payload={{ result: "strikeoutSwinging" }} disabled={pending} onAction={runAction} />
             <ActionButton label="見三振" type="plate:result" payload={{ result: "strikeoutLooking" }} disabled={pending} onAction={runAction} />

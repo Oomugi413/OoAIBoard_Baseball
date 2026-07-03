@@ -3,6 +3,7 @@ import {
   applyAction,
   createBoard,
   createDefaultSettings,
+  getCurrentBatter,
   getCurrentPitcher
 } from "../src/shared/scoringRules.mjs";
 
@@ -58,6 +59,47 @@ function run(board, type, payload = {}) {
   board = run(board, "score:adjust", { side: "home", delta: 1 });
   board = run(board, "score:adjust", { side: "home", delta: -10 });
   assert.equal(board.gameState.score.home, 0);
+}
+
+{
+  let board = createBoard("test");
+  board = run(board, "pitch:strike");
+  board = run(board, "pitch:foul");
+  board = run(board, "pitch:foul");
+  assert.equal(board.gameState.strikes, 2);
+  assert.equal(getCurrentPitcher(board).pitchCount, 3);
+  board = run(board, "count:reset");
+  assert.equal(board.gameState.balls, 0);
+  assert.equal(board.gameState.strikes, 0);
+}
+
+{
+  let board = createBoard("test");
+  board = run(board, "runner:toggle", { base: "first" });
+  board = run(board, "runner:toggle", { base: "second" });
+  board = run(board, "runner:toggle", { base: "third" });
+  board = run(board, "plate:result", { result: "walk" });
+  assert.equal(board.gameState.score.away, 1);
+  assert.equal(board.gameState.runners.first, true);
+  assert.equal(board.gameState.runners.second, true);
+  assert.equal(board.gameState.runners.third, true);
+  assert.equal(board.playerSettings.currentBattingOrderIndex.away, 1);
+}
+
+{
+  let board = createBoard("test");
+  board = run(board, "plate:result", { result: "hit" });
+  assert.equal(board.playerSettings.away.battingOrder[0].hits, 1);
+  board = run(board, "players:patch", {
+    battingOrderUpdates: {
+      away: {
+        0: { playerName: "New Batter" }
+      }
+    }
+  });
+  assert.equal(board.playerSettings.away.battingOrder[0].playerName, "New Batter");
+  assert.equal(board.playerSettings.away.battingOrder[0].hits, 0);
+  assert.equal(getCurrentBatter(board).playerName, "A.Batter2");
 }
 
 console.log("scoringRules tests passed");
