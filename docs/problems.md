@@ -28,22 +28,6 @@
 - 現象: `rules.md` のファイル構成に「JSDoc typedef（@ts-check で共有する型の形）」として記載があるが、ファイルが存在しない（`src/shared/` には `scoringRules.mjs` のみ）。
 - 解決策: 共有typedefを実際に作るか、ツリーから外す。`fonts/` の欠落は1.2で解消される。
 
-### 1.3 【中】Viewer Pageのツールバーが一般的なノートPC解像度で横に切れ、ボタンを押せない
-
-- 現象: `src/client/pages/ViewerPage.jsx` の `ViewerToolbar` は `md` ブレークポイント（900px以上）で `gridTemplateColumns: "180px 220px minmax(220px, 1fr) 170px 170px 150px 150px auto"` の固定8列グリッドになる。列合計とgap・paddingで実効幅は約1536px必要なため、900pxでは636px、**1366×768という主流のノートPC解像度でも170pxはみ出す**。折り返し先がなく横スクロールも効かないため、「表示リセット」「書き出し」「読み込み」ボタンが画面外に出て押せない。実ブラウザのスクリーンショットで、1366px幅で「表示リセット」の文字が途中で切れて見えなくなることを確認済み。
-- 解決策: `md` の固定列グリッドを `repeat(auto-fit, minmax(...))` や `flexWrap` ベースの折り返しレイアウトに変更する。ScoreInputPageと同様、コンテンツ量に応じて行が増えても全ボタンが画面内に収まる設計にする。
-
-### 1.4 【中】チーム略称の拡大率を上げると、長い略称が自動縮小されず途中で切れる
-
-- 現象: `scoreboard_design.md` 3.2 は「チーム略称が長い場合は、仕切り線を越えないように略称側の文字を自動縮小する」と定めているが、実装（`ScoreboardView.jsx` の `TeamBarSvg`）は `clipPath` によるハードクリップのみで、フォントサイズの自動縮小はしていない。`teamLabelFontSize()` は文字数から基準サイズ（44〜70px）を決めた後、`abbreviationScale`（60%〜180%、ユーザー設定可能）をそのまま掛けるだけで、得点スロットの仕切り線（x=640）に収まるかは考慮しない。
-  - 再現手順: 略称を6文字程度（例: `CHC000`）にし、編集メニューの「略称拡大率」を160%まで上げる。100%では「CHC000　|　0」ときれいに収まるが、160%では末尾が仕切り線でクリップされ、得点の「0」と隙間なく接触して「CHC0│0」のように見た目が崩れる（実ブラウザのスクリーンショットで確認、100%スケールでは同じ略称でも問題なし）。
-- 解決策: `labelFontSize` を計算した後、実際のテキスト幅（`getBBox` などで概算するか、文字数×フォントサイズの近似式で）が `labelRightX - labelLeftX` を超える場合は、収まるまでフォントサイズを縮小してから描画する。クリップは最終防衛線として残してよいが、通常運用では発動しないようにする。
-
-### 1.5 【小】SettingsPage / ViewerPageの一部ボタン行で `flexWrap="wrap"` が効いていない
-
-- 現象: `src/client/pages/SettingsPage.jsx`（4箇所）と `src/client/pages/ViewerPage.jsx`（1箇所）の `<Stack direction="row" useFlexGap flexWrap="wrap">` は、`flexWrap` をStackへ直接propとして渡しているが、実ブラウザで計算スタイルを確認すると `flex-wrap: nowrap` のままで効いていない。ScoreInputPageは同種の問題を`sx={{ flexWrap: "wrap" }}` へ書き換えて解決済み（本ファイル §3 参照）だが、他2ページは未修正のまま残っている。
-- 影響: 現状はいずれの行もボタン数が少なく、行内に収まってしまうため見た目の破綻はまだ現れていない。ただしボタンが増えたり、長いラベルに変わったりすると、1.3と同様に画面外へはみ出す可能性がある。
-- 解決策: 5箇所とも `flexWrap="wrap"` を `sx={{ flexWrap: "wrap" }}` に統一する（各1行の変更）。
 
 ## 2. 直さなくていい問題
 
@@ -150,3 +134,6 @@
 - 編集メニューに「略称中央揃え」トグルが存在し、初期値OFFで仕様どおり。
 - コード分割後の全6ルート（Home / Viewer / Control List / Score Input / Settings / Preset Reorder）を幅320〜1280pxで確認し、Score Input Page以外はボタンのはみ出し・横スクロールなし。単体テスト・ビルドとも成功、ページエラーなし。
 - 検証で変更したチーム設定（略称拡大率の一時変更）は元の値（160%）に復元済み。
+- Viewer Pageのツールバーを固定8列から自動折り返しグリッドへ変更
+- ViewerPage 1箇所、SettingsPage 4箇所の flexWrap を sx={{ flexWrap: "wrap" }} に統一
+- scoreboard_design.md から略称の自動縮小方針を外し、手動調整方針へ変更
