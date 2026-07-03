@@ -21,6 +21,7 @@ import TopBar from "../components/common/TopBar.jsx";
 export default function SettingsPage() {
   const { state, refresh } = useServerState();
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(state.settings));
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [presetForms, setPresetForms] = useState(() => createPresetForms(state.presets || []));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -29,14 +30,15 @@ export default function SettingsPage() {
   const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
 
   useEffect(() => {
-    setSettingsForm(createSettingsForm(state.settings));
-  }, [state.settings]);
+    if (!settingsDirty) setSettingsForm(createSettingsForm(state.settings));
+  }, [settingsDirty, state.settings]);
 
   useEffect(() => {
     setPresetForms((current) => mergePresetForms(current, state.presets || []));
   }, [state.presets]);
 
   const updateSettings = (field, value) => {
+    setSettingsDirty(true);
     setSettingsForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -67,6 +69,17 @@ export default function SettingsPage() {
     }
   };
 
+  const clearPresetLogo = (presetId) => {
+    setPresetForms((current) => ({
+      ...current,
+      [presetId]: {
+        ...current[presetId],
+        logoPath: "",
+        pendingLogo: ""
+      }
+    }));
+  };
+
   const saveSettings = async () => {
     setSaving(true);
     try {
@@ -79,6 +92,7 @@ export default function SettingsPage() {
         })
       });
       await refresh();
+      setSettingsDirty(false);
       setMessage("全体設定を保存しました。");
     } catch (caught) {
       setError(caught.message);
@@ -249,6 +263,7 @@ export default function SettingsPage() {
                         saving={saving}
                         onUpdate={updatePreset}
                         onLogoFile={handleLogoFile}
+                        onClearLogo={clearPresetLogo}
                         onSave={savePreset}
                         onDelete={setDeletePresetId}
                       />
@@ -289,7 +304,7 @@ export default function SettingsPage() {
   );
 }
 
-function PresetCard({ preset, form, saving, onUpdate, onLogoFile, onSave, onDelete }) {
+function PresetCard({ preset, form, saving, onUpdate, onLogoFile, onClearLogo, onSave, onDelete }) {
   const preview = form.pendingLogo || form.logoPath;
   return (
     <Card variant="outlined" component="section">
@@ -345,7 +360,7 @@ function PresetCard({ preset, form, saving, onUpdate, onLogoFile, onSave, onDele
                 onChange={(event) => onLogoFile(preset.id, event.target.files?.[0] || null)}
               />
             </Button>
-            <Button onClick={() => onUpdate(preset.id, "logoPath", "")}>ロゴ削除</Button>
+            <Button onClick={() => onClearLogo(preset.id)}>ロゴ削除</Button>
             <Typography variant="body2" color="text.secondary">
               {preview ? "設定済み" : "未設定"}
             </Typography>

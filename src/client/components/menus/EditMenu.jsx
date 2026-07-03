@@ -272,7 +272,11 @@ function TeamSection({
           type="number"
           value={team.abbreviationScale}
           inputProps={{ min: 60, max: 160, step: 5 }}
-          onChange={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 160, 100))}
+          onChange={(event) => onUpdate(side, "abbreviationScale", event.target.value)}
+          onBlur={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 160, 100))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
         />
       </Stack>
       <Stack direction="row" spacing={1}>
