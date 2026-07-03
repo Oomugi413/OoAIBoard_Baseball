@@ -259,12 +259,12 @@ function TeamSection({
         <Slider
           value={team.abbreviationScale}
           min={60}
-          max={160}
+          max={180}
           step={5}
           marks={[
             { value: 60, label: "60%" },
             { value: 100, label: "100%" },
-            { value: 160, label: "160%" }
+            { value: 180, label: "180%" }
           ]}
           onChange={(_, value) => onUpdate(side, "abbreviationScale", Array.isArray(value) ? value[0] : value)}
         />
@@ -272,9 +272,9 @@ function TeamSection({
           label="略称拡大率(%)"
           type="number"
           value={team.abbreviationScale}
-          inputProps={{ min: 60, max: 160, step: 5 }}
+          inputProps={{ min: 60, max: 180, step: 5 }}
           onChange={(event) => onUpdate(side, "abbreviationScale", event.target.value)}
-          onBlur={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 160, 100))}
+          onBlur={(event) => onUpdate(side, "abbreviationScale", clampNumber(event.target.value, 60, 180, 100))}
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
           }}
@@ -377,7 +377,7 @@ function createTeamForm(team) {
     textColor: team.textColor || "#ffffff",
     linkedPresetId: team.linkedPresetId || "",
     selectedPresetId: team.linkedPresetId || "",
-    abbreviationScale: clampNumber(team.abbreviationScale, 60, 160, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, 60, 180, 100)
   };
 }
 
@@ -408,7 +408,7 @@ async function createTeamPatch(team, dirtyFields, side) {
   for (const field of fieldKeys) {
     if (dirtyFields.has(`team:${side}:${field}`)) {
       values[field] = field === "abbreviationScale"
-        ? clampNumber(team[field], 60, 160, 100)
+        ? clampNumber(team[field], 60, 180, 100)
         : team[field];
     }
   }
@@ -443,7 +443,7 @@ async function resolveTeamForSave(team) {
     textColor: team.textColor,
     logoPath,
     linkedPresetId: team.linkedPresetId || null,
-    abbreviationScale: clampNumber(team.abbreviationScale, 60, 160, 100)
+    abbreviationScale: clampNumber(team.abbreviationScale, 60, 180, 100)
   };
 }
 

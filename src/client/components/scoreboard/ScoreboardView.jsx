@@ -226,7 +226,7 @@ function InningSvg({ svgId, gameState }) {
 function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const y = side === "away" ? 212 : 382;
   const logoCy = side === "away" ? 291 : 461;
-  const textY = side === "away" ? 316 : 486;
+  const textY = y + 79;
   const scoreY = side === "away" ? 345 : 515;
   const dividerTop = side === "away" ? 226 : 396;
   const dividerBottom = side === "away" ? 356 : 526;
@@ -246,6 +246,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
         y={textY}
         fontSize={labelFontSize}
         fill={team.textColor || "#ffffff"}
+        dominantBaseline="middle"
       >
         {label}
       </text>
@@ -411,7 +412,7 @@ function teamLabelFontSize(label) {
 function teamAbbreviationScale(team) {
   const scale = Number(team?.abbreviationScale);
   if (!Number.isFinite(scale)) return 1;
-  return Math.max(0.6, Math.min(1.6, scale / 100));
+  return Math.max(0.6, Math.min(1.8, scale / 100));
 }
 
 function normalizeHexColor(value) {

@@ -492,7 +492,7 @@ function patchBoardConfig(board, payload) {
     applyTeamPatch(current, values, "teamColor", (value) => String(value || "#1f5fbf"));
     applyTeamPatch(current, values, "textColor", (value) => String(value || "#ffffff"));
     applyTeamPatch(current, values, "linkedPresetId", (value) => value ? String(value) : null);
-    applyTeamPatch(current, values, "abbreviationScale", (value) => clamp(Number(value) || 100, 60, 160));
+    applyTeamPatch(current, values, "abbreviationScale", (value) => clamp(Number(value) || 100, 60, 180));
   }
 
   const displayOptions = payload.displayOptions && typeof payload.displayOptions === "object"
