@@ -219,13 +219,14 @@ function ViewerToolbar({
       component="section"
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "180px 220px minmax(220px, 1fr) 170px 170px 150px 150px auto" },
+        gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(auto-fit, minmax(160px, 1fr))" },
         gap: 1,
         alignItems: "center",
         p: 1.5,
         bgcolor: "rgba(244, 246, 248, 0.94)",
         borderBottom: "1px solid",
-        borderColor: "divider"
+        borderColor: "divider",
+        "& > *": { minWidth: 0 }
       }}
     >
       <TextField
@@ -297,7 +298,7 @@ function ViewerToolbar({
         onApply={() => onTransform({ y: numberOrFallback(draftTransform.y, selectedTransform.y) })}
         inputProps={{ "data-viewer-y": "" }}
       />
-      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Button disabled={disabled} onClick={onReset}>表示リセット</Button>
         <Button onClick={onExport}>書き出し</Button>
         <Button onClick={onImport}>読み込み</Button>

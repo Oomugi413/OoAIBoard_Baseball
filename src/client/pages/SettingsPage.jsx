@@ -233,7 +233,7 @@ export default function SettingsPage() {
                   onChange={(event) => updateSettings("overlayDisplaySeconds", event.target.value)}
                   slotProps={{ htmlInput: { min: 1, "data-settings-field": "overlayDisplaySeconds" } }}
                 />
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   <Button variant="contained" disabled={saving} onClick={saveSettings}>
                     全体設定を保存
                   </Button>
@@ -252,7 +252,7 @@ export default function SettingsPage() {
                   <Typography variant="h6" component="h2">
                     チームプリセット
                   </Typography>
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                     <Button variant="contained" disabled={saving} onClick={createPreset}>
                       プリセット作成
                     </Button>
@@ -357,7 +357,7 @@ function PresetCard({ preset, form, saving, onUpdate, onLogoFile, onClearLogo, o
               sx={{ flex: 1 }}
             />
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+          <Stack direction="row" spacing={1} alignItems="center" useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button component="label" variant="outlined">
               ロゴ画像
               <input
@@ -390,7 +390,7 @@ function PresetCard({ preset, form, saving, onUpdate, onLogoFile, onClearLogo, o
             />
           ) : null}
           <Divider />
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button
               variant="contained"
               disabled={saving}
