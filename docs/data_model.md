@@ -80,6 +80,7 @@
 - text color
 - abbreviation scale
 - abbreviation width
+- abbreviation centered
 - linked preset id
 
 表示ルール:
@@ -88,6 +89,7 @@
 - チームカラー上の文字色の初期値は白。
 - チーム略称の表示倍率はチームごとに設定可能で、初期値は100%。
 - チーム略称の横幅圧縮率はチームごとに設定可能で、初期値は100%、設定範囲は30%から120%。
+- チーム略称はチームごとに略称枠内の左右中央揃えを設定可能で、初期値はOFF。
 - スコアボード上の得点は最も大きく表示する。
 
 ## 4. Team Preset

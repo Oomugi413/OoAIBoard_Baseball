@@ -250,7 +250,11 @@ function InningSvg({ svgId, gameState }) {
 function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const y = side === "away" ? 212 : 382;
   const logoCy = side === "away" ? 291 : 461;
-  const textY = y + 84;
+  const labelTop = y;
+  const labelHeight = 158;
+  const labelCenterY = labelTop + labelHeight / 2;
+  const labelLeftX = 343;
+  const labelRightX = 640;
   const scoreY = side === "away" ? 345 : 515;
   const dividerTop = side === "away" ? 226 : 396;
   const dividerBottom = side === "away" ? 356 : 526;
@@ -259,12 +263,15 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const label = team.abbreviation || team.name;
   const labelFontSize = Math.round(teamLabelFontSize(label) * teamAbbreviationScale(team));
   const labelWidthScale = teamAbbreviationWidth(team);
+  const textY = labelCenterY + teamLabelVerticalOffset(labelFontSize);
+  const textX = team.abbreviationCentered ? (labelLeftX + labelRightX) / 2 : labelLeftX;
+  const textAnchor = team.abbreviationCentered ? "middle" : "start";
 
   return (
     <>
       <defs>
         <clipPath id={clipId}>
-          <rect x="162" y={y} width="638" height="158" />
+          <rect x={labelLeftX} y={y} width={labelRightX - labelLeftX} height="158" />
         </clipPath>
       </defs>
       <rect x="162" y={y} width="638" height="158" rx="13" fill={`url(#${gradientId})`} />
@@ -278,8 +285,9 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
           y="0"
           fontSize={labelFontSize}
           fill={team.textColor || "#ffffff"}
-          dominantBaseline="central"
-          transform={`translate(343 ${textY}) scale(${labelWidthScale} 1)`}
+          dominantBaseline="middle"
+          textAnchor={textAnchor}
+          transform={`translate(${textX} ${textY}) scale(${labelWidthScale} 1)`}
         >
           {label}
         </text>
@@ -457,6 +465,10 @@ function teamAbbreviationWidth(team) {
   const width = Number(team?.abbreviationWidth);
   if (!Number.isFinite(width)) return 1;
   return Math.max(0.3, Math.min(1.2, width / 100));
+}
+
+function teamLabelVerticalOffset(fontSize) {
+  return Math.round(fontSize * 0.1);
 }
 
 function normalizeHexColor(value) {

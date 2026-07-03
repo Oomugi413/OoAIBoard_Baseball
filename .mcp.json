@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex": {
       "type": "stdio",
-      "command": "C:\\Users\\riyok\\AppData\\Local\\Programs\\Codex\\codex.exe",
+      "command": "C:\\Users\\riyok\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
       "args": ["mcp-server"],
       "env": {},
       "timeout": 600000

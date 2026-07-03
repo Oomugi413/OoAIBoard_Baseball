@@ -317,6 +317,15 @@ function TeamSection({
           onApply={(value) => onUpdate(side, "abbreviationWidth", value)}
         />
       </Stack>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={Boolean(team.abbreviationCentered)}
+            onChange={(event) => onUpdate(side, "abbreviationCentered", event.target.checked)}
+          />
+        }
+        label="略称中央揃え"
+      />
       <Stack direction="row" spacing={1}>
         <TextField
           label="チーム色"
@@ -446,7 +455,8 @@ function createTeamForm(team) {
     linkedPresetId: team.linkedPresetId || "",
     selectedPresetId: team.linkedPresetId || "",
     abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100),
-    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100)
+    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100),
+    abbreviationCentered: Boolean(team.abbreviationCentered)
   };
 }
 
@@ -473,13 +483,15 @@ async function createEditPatch(form, dirtyFields) {
 
 async function createTeamPatch(team, dirtyFields, side) {
   const values = {};
-  const fieldKeys = ["name", "abbreviation", "teamColor", "textColor", "linkedPresetId", "abbreviationScale", "abbreviationWidth"];
+  const fieldKeys = ["name", "abbreviation", "teamColor", "textColor", "linkedPresetId", "abbreviationScale", "abbreviationWidth", "abbreviationCentered"];
   for (const field of fieldKeys) {
     if (dirtyFields.has(`team:${side}:${field}`)) {
       if (field === "abbreviationScale") {
         values[field] = clampNumber(team[field], MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100);
       } else if (field === "abbreviationWidth") {
         values[field] = clampNumber(team[field], MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100);
+      } else if (field === "abbreviationCentered") {
+        values[field] = Boolean(team[field]);
       } else {
         values[field] = team[field];
       }
@@ -517,7 +529,8 @@ async function resolveTeamForSave(team) {
     logoPath,
     linkedPresetId: team.linkedPresetId || null,
     abbreviationScale: clampNumber(team.abbreviationScale, MIN_ABBREVIATION_SCALE, MAX_ABBREVIATION_SCALE, 100),
-    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100)
+    abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100),
+    abbreviationCentered: Boolean(team.abbreviationCentered)
   };
 }
 
