@@ -1,5 +1,8 @@
 // @ts-check
 import { useEffect, useState } from "react";
+import dDinProUrl from "../../fonts/d-din-pro/D-DIN-PRO-700-Bold.woff2?url";
+import dDinProExpUrl from "../../fonts/d-din-pro/D-DIN-PRO-Exp-700-Bold.woff2?url";
+import notoSansJp700Url from "../../fonts/noto-sans-jp/NotoSansJP-Japanese-700.woff2?url";
 
 /**
  * スコアボード本体（表示専用）。
@@ -95,11 +98,32 @@ export default function ScoreboardView({ board }) {
             </feMerge>
           </filter>
           <style>{`
+            @font-face {
+              font-family: "D-DIN PRO Exp";
+              src: url("${dDinProExpUrl}") format("woff2");
+              font-style: normal;
+              font-weight: 700;
+              font-display: swap;
+            }
+            @font-face {
+              font-family: "D-DIN PRO";
+              src: url("${dDinProUrl}") format("woff2");
+              font-style: normal;
+              font-weight: 700;
+              font-display: swap;
+            }
+            @font-face {
+              font-family: "Noto Sans JP";
+              src: url("${notoSansJp700Url}") format("woff2");
+              font-style: normal;
+              font-weight: 700;
+              font-display: swap;
+            }
             .sb-text-${svgId} { font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif; }
             .sb-name-${svgId} { font-size: 60px; font-weight: 600; fill: #eef4fd; }
             .sb-stat-${svgId} { font-size: 51px; font-weight: 600; fill: #93a3bb; }
             .sb-chip-${svgId} { font-size: 42px; font-weight: 700; }
-            .sb-abbr-${svgId} { font-weight: 700; letter-spacing: 0.5px; }
+            .sb-abbr-${svgId} { font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif; font-weight: 700; letter-spacing: 0.5px; }
             .sb-score-${svgId} { font-size: 150px; font-weight: 700; }
             .sb-inn-${svgId} { font-size: 128px; font-weight: 700; fill: #ffffff; }
             .sb-count-${svgId} { font-size: 104px; font-weight: 700; fill: #f2f6ff; letter-spacing: 2px; }
@@ -162,7 +186,7 @@ export default function ScoreboardView({ board }) {
         <text
           className={`sb-text-${svgId} sb-count-${svgId}`}
           x="990"
-          y="438"
+          y="446"
           textAnchor="middle"
         >
           {state.balls}-{state.strikes}
@@ -187,16 +211,16 @@ function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
       <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="79" textAnchor="end">
         {batterLine(batter)}
       </text>
-      <line x1="30" y1="110" x2="1170" y2="110" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
-      <rect x="30" y="120" width="62" height="62" rx="11" fill={teamColor(board, defending)} />
-      <rect x="30" y="120" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
-      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="164" textAnchor="middle" fill={teamTextColor(board, defending)}>
+      <line x1="30" y1="105" x2="1170" y2="105" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
+      <rect x="30" y="117" width="62" height="62" rx="11" fill={teamColor(board, defending)} />
+      <rect x="30" y="117" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
+      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="161" textAnchor="middle" fill={teamTextColor(board, defending)}>
         P
       </text>
-      <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="172">
+      <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="169">
         {pitcher?.pitcherName || "N.Pitcher"}
       </text>
-      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="169" textAnchor="end">
+      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="166" textAnchor="end">
         P.{pitcher?.pitchCount || 0}
       </text>
     </>

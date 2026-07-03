@@ -28,12 +28,12 @@ const BASE_LABELS = {
  */
 function ControlGroup({ title, children }) {
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ minWidth: 0 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
           {title}
         </Typography>
-        <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} useFlexGap flexWrap="wrap">
+        <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} useFlexGap sx={{ flexWrap: "wrap", minWidth: 0 }}>
           {children}
         </Stack>
       </CardContent>
@@ -69,7 +69,8 @@ function ActionButton({
       onClick={() => onAction(type, payload)}
       sx={{
         minWidth: { xs: 78, sm: 96 },
-        flex: { xs: "1 1 96px", sm: "0 1 auto" },
+        maxWidth: "100%",
+        flex: { xs: "1 1 88px", sm: "0 1 auto" },
         px: { xs: 1, sm: 2 },
         whiteSpace: "normal",
         lineHeight: 1.2
@@ -163,7 +164,7 @@ export default function ScoreInputPage() {
         >
           <ScoreboardView board={board} />
         </Box>
-        <Stack spacing={1.5}>
+        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
           <ControlGroup title="投球">
             <ActionButton label="ボール" type="pitch:ball" disabled={pending} variant="contained" color="success" onAction={runAction} />
             <ActionButton label="ストライク" type="pitch:strike" disabled={pending} variant="contained" color="warning" onAction={runAction} />
