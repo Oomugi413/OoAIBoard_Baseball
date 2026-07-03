@@ -245,6 +245,9 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
     case "players:update":
       return updatePlayers(board, payload);
 
+    case "players:patch":
+      return patchPlayers(board, payload);
+
     default:
       return { board, changed: false, error: `未対応の操作です: ${type}` };
   }
@@ -475,6 +478,52 @@ function updatePlayers(board, payload) {
     ...next.playerSettings,
     ...payload
   };
+  next.updatedAt = new Date().toISOString();
+  return { board: next, changed: true };
+}
+
+function patchPlayers(board, payload) {
+  const next = structuredCloneCompat(board);
+  const playerSettings = next.playerSettings || createDefaultPlayerSettings();
+  next.playerSettings = playerSettings;
+
+  for (const side of [SIDES.AWAY, SIDES.HOME]) {
+    const sideSettings = playerSettings[side] || createDefaultSidePlayers(side);
+    playerSettings[side] = sideSettings;
+
+    const batterUpdates = payload?.battingOrderUpdates?.[side] || {};
+    for (const [rawIndex, values] of Object.entries(batterUpdates)) {
+      const index = Number(rawIndex);
+      const batter = sideSettings.battingOrder?.[index];
+      if (!batter) continue;
+      if (Object.hasOwn(values, "playerName")) batter.playerName = String(values.playerName || "");
+      if (Object.hasOwn(values, "position")) batter.position = String(values.position || "");
+      if (Object.hasOwn(values, "isPinchHitter")) batter.isPinchHitter = Boolean(values.isPinchHitter);
+    }
+
+    const pitcherUpdates = payload?.pitcherUpdates?.[side] || {};
+    for (const [rawIndex, values] of Object.entries(pitcherUpdates)) {
+      const index = Number(rawIndex);
+      const pitcher = sideSettings.pitchers?.[index];
+      if (!pitcher) continue;
+      if (Object.hasOwn(values, "pitcherName")) pitcher.pitcherName = String(values.pitcherName || "");
+      if (Object.hasOwn(values, "pitchCount")) pitcher.pitchCount = Math.max(0, Number(values.pitchCount || 0));
+    }
+
+    const addedPitchers = Array.isArray(payload?.addedPitchers?.[side]) ? payload.addedPitchers[side] : [];
+    for (const added of addedPitchers) {
+      const order = (sideSettings.pitchers || []).length + 1;
+      sideSettings.pitchers = [
+        ...(sideSettings.pitchers || []),
+        {
+          pitcherName: String(added?.pitcherName || `${side === SIDES.AWAY ? "A" : "B"}.Pitcher${order}`),
+          pitchCount: Math.max(0, Number(added?.pitchCount || 0)),
+          order
+        }
+      ];
+    }
+  }
+
   next.updatedAt = new Date().toISOString();
   return { board: next, changed: true };
 }

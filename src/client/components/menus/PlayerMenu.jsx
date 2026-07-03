@@ -1,5 +1,5 @@
 // @ts-check
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -30,8 +30,12 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   const [saving, setSaving] = useState(false);
   const [activeSide, setActiveSide] = useState("away");
   const [form, setForm] = useState(() => createPlayerForm(board));
+  const dirtyFieldsRef = useRef(new Set());
+  const addedPitchersRef = useRef({ away: 0, home: 0 });
+  const initialPitcherLengthsRef = useRef(createInitialPitcherLengths(board));
 
   const updateBatter = (side, index, field, value) => {
+    dirtyFieldsRef.current.add(`batter:${side}:${index}:${field}`);
     setForm((current) => ({
       ...current,
       [side]: {
@@ -44,6 +48,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   };
 
   const updatePitcher = (side, index, field, value) => {
+    dirtyFieldsRef.current.add(`pitcher:${side}:${index}:${field}`);
     setForm((current) => ({
       ...current,
       [side]: {
@@ -56,6 +61,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   };
 
   const addPitcher = (side) => {
+    addedPitchersRef.current[side] += 1;
     setForm((current) => {
       const pitchers = current[side].pitchers;
       const order = pitchers.length + 1;
@@ -81,7 +87,15 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
     try {
       await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
         method: "POST",
-        body: JSON.stringify({ type: "players:update", payload: createSavePayload(form) })
+        body: JSON.stringify({
+          type: "players:patch",
+          payload: createPatchPayload(
+            form,
+            dirtyFieldsRef.current,
+            addedPitchersRef.current,
+            initialPitcherLengthsRef.current
+          )
+        })
       });
       await refresh();
       onSaved("選手名メニューを保存しました。");
@@ -292,26 +306,53 @@ function normalizePitchers(pitchers, side) {
   return normalized.length ? normalized : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, order: 1 }];
 }
 
-function createSavePayload(form) {
-  return {
-    matchupEnabled: form.matchupEnabled,
-    currentBattingOrderIndex: form.currentBattingOrderIndex,
-    away: {
-      battingOrder: form.away.battingOrder,
-      pitchers: form.away.pitchers.map((pitcher, index) => ({
-        ...pitcher,
-        order: index + 1,
-        pitchCount: Math.max(0, Number(pitcher.pitchCount || 0))
-      }))
-    },
-    home: {
-      battingOrder: form.home.battingOrder,
-      pitchers: form.home.pitchers.map((pitcher, index) => ({
-        ...pitcher,
-        order: index + 1,
-        pitchCount: Math.max(0, Number(pitcher.pitchCount || 0))
-      }))
+function createPatchPayload(form, dirtyFields, addedPitchers, initialPitcherLengths) {
+  const payload = {
+    battingOrderUpdates: { away: {}, home: {} },
+    pitcherUpdates: { away: {}, home: {} },
+    addedPitchers: { away: [], home: [] }
+  };
+
+  for (const key of dirtyFields) {
+    const [kind, side, rawIndex, field] = key.split(":");
+    const index = Number(rawIndex);
+    if (!SIDES.includes(side) || !Number.isInteger(index)) continue;
+    if (kind === "batter") {
+      const player = form[side]?.battingOrder?.[index];
+      if (!player) continue;
+      payload.battingOrderUpdates[side][index] = {
+        ...(payload.battingOrderUpdates[side][index] || {}),
+        [field]: player[field]
+      };
     }
+    if (kind === "pitcher" && index < initialPitcherLengths[side]) {
+      const pitcher = form[side]?.pitchers?.[index];
+      if (!pitcher) continue;
+      payload.pitcherUpdates[side][index] = {
+        ...(payload.pitcherUpdates[side][index] || {}),
+        [field]: field === "pitchCount" ? Math.max(0, Number(pitcher.pitchCount || 0)) : pitcher[field]
+      };
+    }
+  }
+
+  for (const side of SIDES) {
+    const start = initialPitcherLengths[side];
+    const count = addedPitchers[side] || 0;
+    payload.addedPitchers[side] = form[side].pitchers
+      .slice(start, start + count)
+      .map((pitcher) => ({
+        pitcherName: String(pitcher.pitcherName || defaultPitcherName(side, 1)),
+        pitchCount: Math.max(0, Number(pitcher.pitchCount || 0))
+      }));
+  }
+
+  return payload;
+}
+
+function createInitialPitcherLengths(board) {
+  return {
+    away: Math.max(1, board.playerSettings?.away?.pitchers?.length || 0),
+    home: Math.max(1, board.playerSettings?.home?.pitchers?.length || 0)
   };
 }
 
