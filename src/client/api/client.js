@@ -12,7 +12,15 @@ export async function api(path, options = {}) {
     ...options,
     headers: { "Content-Type": "application/json", ...options.headers }
   });
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw new Error("サーバーから予期しない応答が返されました。");
+    }
+    throw new Error("サーバーの応答を読み取れませんでした。");
+  }
   if (!response.ok) {
     throw new Error(data.error || "エラーが発生しました。");
   }

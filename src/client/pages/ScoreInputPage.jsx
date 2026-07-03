@@ -101,8 +101,10 @@ export default function ScoreInputPage() {
     }
   };
 
+  const menuOpen = editOpen || playerOpen || resetConfirmOpen;
+
   useEffect(() => {
-    if (!board || pending) return undefined;
+    if (!board || pending || menuOpen) return undefined;
     const handleKeyDown = (event) => {
       if (isEditableTarget(event.target)) return;
       const isUndoRedoKey = event.key.toLowerCase() === "z" && (event.ctrlKey || event.metaKey);
@@ -112,7 +114,7 @@ export default function ScoreInputPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [board, pending, runAction]);
+  }, [board, pending, menuOpen, runAction]);
 
   if (!board) {
     return (

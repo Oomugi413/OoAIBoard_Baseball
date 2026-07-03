@@ -47,6 +47,11 @@ const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
   } catch (error) {
+    if (res.headersSent) return;
+    if (error?.statusCode) {
+      sendJson(res, error.statusCode, { error: error.message });
+      return;
+    }
     console.error(error);
     sendJson(res, 500, { error: "サーバー内部でエラーが発生しました。" });
   }
@@ -240,7 +245,7 @@ async function serveStatic(req, res, url) {
   if (pathname.startsWith("/uploads/")) {
     const relativeUploadPath = pathname.slice("/uploads/".length);
     const uploadCandidate = path.normalize(path.join(uploadRootDir, relativeUploadPath));
-    if (!uploadCandidate.startsWith(uploadRootDir)) {
+    if (!isPathInsideDirectory(uploadCandidate, uploadRootDir)) {
       res.writeHead(403);
       res.end();
       return;
@@ -251,7 +256,7 @@ async function serveStatic(req, res, url) {
 
   if (pathname === "/") pathname = "/index.html";
   const candidate = path.normalize(path.join(distDir, pathname));
-  if (!candidate.startsWith(distDir)) {
+  if (!isPathInsideDirectory(candidate, distDir)) {
     res.writeHead(403);
     res.end();
     return;
@@ -500,9 +505,20 @@ function touchAccess() {
   state.settings.lastAppAccessAt = new Date().toISOString();
 }
 
+const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
+
 async function readJsonBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+      const error = new Error("リクエストの内容が大きすぎます。");
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw.trim()) return {};
   return JSON.parse(raw);

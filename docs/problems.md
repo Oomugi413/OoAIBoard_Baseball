@@ -9,41 +9,7 @@
 
 ## 1. 直すべき問題
 
-優先度順。各項目に現象、場所、解決策を記す。
-
-### 1.1 【中】クライアントJSが1ファイル603kBで、Viteがチャンクサイズ警告を出す
-
-- 現象: `npx vite build` で `dist/assets/index-*.js` が 603.30 kB（gzip 186.41 kB）になり、500kB超の警告が出る。
-- 場所: `src/client/main.jsx` が全ページ（Home / Viewer / ControlList / ScoreInput / Settings / PresetReorder）を静的importしているため、React + MUI + Emotion + 全画面が初回JS1本にまとまる。
-- 影響: 初回表示がやや遅くなる（特にスマホ）。LAN配信なので致命的ではないが、放置するとページ追加のたびに悪化する。
-- 解決策: ページ単位で `React.lazy()` + `<Suspense>` による動的importに切り替え、画面ごとのチャンクへ分割する。設定変更で警告のしきい値だけ上げる対処は、見かけを消すだけなので行わない。
-
-### 1.2 【中】APIクライアントがJSON以外の応答で分かりにくいエラーになる
-
-- 現象: `src/client/api/client.js` は常に `response.json()` を呼ぶため、サーバーがHTMLやテキストを返す状況（ビルド未実行時の503、予期しない500など）では、ユーザー向けメッセージではなくJSON解析エラーになる。
-- 解決策: `response.json()` を try/catch で包む、または `content-type` を確認し、解析できない場合は「サーバーから予期しない応答が返されました。」のような固定メッセージのErrorを投げる。数行の修正。
-
-### 1.3 【中】SSE受信データのJSON解析が無防備
-
-- 現象: `src/client/api/useServerState.js` の `connected` / `update` リスナーが `JSON.parse` を直接呼ぶ。壊れたイベントや切断途中の異常データで例外になると、そのイベントの状態反映だけが失われ、画面が古いまま気づきにくい。
-- 解決策: リスナー内を try/catch で包み、解析失敗時は `console.warn` して無視する（EventSourceの自動再接続と `connected` イベントの全量再送で回復する）。数行の修正。
-
-### 1.4 【小】サーバーのリクエストJSON読み込みにサイズ上限がない
-
-- 現象: `src/server/index.mjs` の `readJsonBody` が本文サイズを制限せず全量をメモリに積む。ロゴはデコード後に750KBチェックがあるが、本文自体は無制限。
-- 影響: LAN運用なら緊急度は低いが、API直叩きや誤操作で巨大データを送るとメモリを圧迫する。
-- 解決策: 受信中に累計サイズを数え、上限（例: 2MB）を超えたら413を返して打ち切る。数行の修正。
-
-### 1.5 【小】静的配信のパス検査が文字列 `startsWith()` のまま
-
-- 現象: `serveStatic` のパス検査が `candidate.startsWith(distDir)` 方式。`dist2` のような同名接頭辞の兄弟フォルダが存在すると理論上すり抜ける（現在の構成に該当フォルダはなく、実害はない）。
-- 解決策: 同じファイル内の `deleteUnusedTeamLogos` で既に使われている `isPathInsideDirectory()`（`path.relative` 方式）を `serveStatic` / uploads配信でも使い回す。数行の修正。
-
-### 1.6 【小】メニューを開いている間もCtrl+Zがスコアのundoを実行する
-
-- 現象: キーボードショートカットは入力欄フォーカス時は無効化されているが、編集メニュー/選手名メニュー（Drawer）を開いてボタン等にフォーカスがある状態でCtrl+Zを押すと、背後の試合状態がundoされる。フォーム編集の取り消しのつもりが試合を巻き戻す事故につながる。
-- 場所: `src/client/pages/ScoreInputPage.jsx` のkeydownリスナー。
-- 解決策: `editOpen || playerOpen || resetConfirmOpen` の間はショートカットを無効化する（条件1つの追加）。
+現時点ではなし。1.1〜1.6は対処済み（`3. 解決済みの記録` を参照）。
 
 ## 2. 直さなくていい問題
 
@@ -82,7 +48,7 @@
 
 ## 3. 解決済みの記録
 
-今回の点検（2026-07-02）で解決を確認したもの:
+### 2026-07-02（1回目の点検）で解決を確認したもの
 
 - 設定画面の全体設定フォームが、SSE更新（他画面のスコア操作など）のたびに入力中の値を失う問題 → dirty管理で修正済みを確認。
 - 編集メニューの「略称拡大率(%)」数値入力が、入力のたびに即クランプされて実質入力不能だった問題 → blur/Enter時クランプへ修正済みを確認。
@@ -90,3 +56,14 @@
 - 選手名メニューが開いた時点のスナップショットを丸ごと保存し、未編集の球数・成績まで巻き戻す問題 → 編集した項目だけを送る `players:patch` へ改善済みを確認。
 - 一時演出がSSE再描画に依存し、期限切れ後も残ることがある問題 → クライアント側タイマーで期限時に消えるよう修正済みを確認。
 - スコアリセット機能は `operation.md`（確認ダイアログ必須・リセット対象・履歴クリア）に文書化済みで、実装と一致することを確認。
+
+### 2026-07-02（2回目、1.1〜1.6の一括修正）
+
+- 1.1 チャンク分割: `src/client/main.jsx` を `React.lazy()` + `<Suspense>` に変更。ビルド結果は単一603.30kBから、最大チャンク328kB（`index-*.js`）＋ページ別チャンク（例: `ScoreInputPage` 40.89kB、`SettingsPage` 9.86kB）に分割され、500kB超の警告が解消したことをビルド出力で確認。
+- 1.2 APIクライアント: `src/client/api/client.js` の `response.json()` を try/catch で包み、解析失敗時は日本語の固定メッセージのErrorを投げるよう修正。
+- 1.3 SSE解析保護: `src/client/api/useServerState.js` に `parseSseData()` を追加し、`connected`/`update` リスナーの `JSON.parse` を保護。解析失敗時は `console.warn` して当該イベントを無視。
+- 1.4 リクエストサイズ上限: `src/server/index.mjs` の `readJsonBody` に2MB上限を追加。超過時は413を返す（`statusCode` 付きErrorをthrowし、トップレベルの`catch`で処理する経路を新設）。3MBのボディを送って413が返ることを実測確認。
+- 1.5 パス検査: `serveStatic` の `dist/` と `uploads/` の検査を、既存の `isPathInsideDirectory()`（`path.relative` 方式）に統一。正常なアップロード配信が引き続き200を返すことを確認。
+- 1.6 メニュー表示中のCtrl+Z無効化: `src/client/pages/ScoreInputPage.jsx` に `menuOpen = editOpen || playerOpen || resetConfirmOpen` を追加し、メニュー表示中はキーボードショートカットのリスナー自体を外す。実ブラウザで、編集メニューを開いた状態でのCtrl+Zがundoを実行しないこと、メニューを閉じれば通常どおりundoできることを確認。
+
+全項目: `npm test` 合格、`npx vite build` 成功、コンソールエラーなしを確認済み。

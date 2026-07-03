@@ -50,11 +50,14 @@ export function ServerStateProvider({ children }) {
       setConnected(true);
     });
     events.addEventListener("connected", (event) => {
-      setState(JSON.parse(event.data));
+      const data = parseSseData(event.data);
+      if (!data) return;
+      setState(data);
       setConnected(true);
     });
     events.addEventListener("update", (event) => {
-      const data = JSON.parse(event.data);
+      const data = parseSseData(event.data);
+      if (!data) return;
       setState(data.state);
       setConnected(true);
     });
@@ -82,4 +85,17 @@ export function useServerState() {
     throw new Error("useServerStateはServerStateProviderの内部でのみ使用できます。");
   }
   return value;
+}
+
+/**
+ * SSEイベントのJSONを解析する。壊れたデータは無視し、次のイベントでの回復に任せる。
+ * @param {string} raw
+ */
+function parseSseData(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.warn("SSEイベントの解析に失敗しました。");
+    return null;
+  }
 }
