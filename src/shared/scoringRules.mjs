@@ -11,6 +11,7 @@ export const HALF = Object.freeze({
 export const BASES = Object.freeze(["first", "second", "third"]);
 
 export const DEFAULT_OVERLAY_SECONDS = 3;
+export const HALF_INNING_TRANSITION_SECONDS = 10;
 
 export function createDefaultGameState() {
   return {
@@ -36,7 +37,11 @@ export function createDefaultGameState() {
     // 打席結果ボタンによるカウントリセットだけを検知するための単調カウンタ。
     // クライアント側はこの値の変化を「瞬時にカウントを0-0へ戻す」トリガーとして使う
     // （カウントRS・スコアリセットによるリセットとは区別する）。
-    plateAppearanceSeq: 0
+    plateAppearanceSeq: 0,
+    // 攻守交代の中間表示（"Mid 1st"/"End 2nd"など）。チェンジ操作のたびに新しく設定する一時的な状態。
+    halfInningTransition: null,
+    // 試合終了操作で設定する永続的な状態。スコアリセットまたは「戻る」で解除するまで保持する。
+    finalResult: null
   };
 }
 
@@ -204,17 +209,33 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
         return { board, changed: false, error: "チェンジはアウト3のときのみ使用できます。" };
       }
       return withHistory(board, (draft) => {
+        const finishedInningNumber = draft.gameState.inningNumber;
+        let label;
         if (draft.gameState.inningHalf === HALF.TOP) {
           draft.gameState.inningHalf = HALF.BOTTOM;
+          label = `Mid ${ordinal(finishedInningNumber)}`;
         } else {
           draft.gameState.inningHalf = HALF.TOP;
           draft.gameState.inningNumber += 1;
+          label = `End ${ordinal(finishedInningNumber)}`;
         }
         draft.gameState.balls = 0;
         draft.gameState.strikes = 0;
         draft.gameState.outs = 0;
         clearRunners(draft.gameState);
         draft.gameState.keepCurrentBatterOnNextInning = false;
+        draft.gameState.halfInningTransition = {
+          label,
+          expiresAt: Date.now() + HALF_INNING_TRANSITION_SECONDS * 1000
+        };
+      });
+
+    case "game:finish":
+      return withHistory(board, (draft) => {
+        const { away, home } = draft.gameState.score;
+        // 得点の多いほうを勝者とする。同点の場合はどちらの帯も配色を変えない（winner: null）。
+        const winner = away === home ? null : away > home ? SIDES.AWAY : SIDES.HOME;
+        draft.gameState.finalResult = { winner };
       });
 
     case "runner:toggle":
@@ -471,6 +492,17 @@ export function getDefendingSide(gameState) {
   return gameState.inningHalf === HALF.TOP ? SIDES.HOME : SIDES.AWAY;
 }
 
+/**
+ * 攻守交代の中間表示（表示中のみ）または試合終了状態のとき、対戦選手表示欄・
+ * イニング表示欄を折りたたむべきかどうかを返す。ScoreboardView（クライアント表示用）
+ * とViewer Page（アスペクト比計算用）の両方から参照する共通ロジック。
+ */
+export function isBoardCollapsed(gameState) {
+  const transition = gameState?.halfInningTransition;
+  const activeTransition = transition && transition.expiresAt > Date.now();
+  return Boolean(activeTransition) || Boolean(gameState?.finalResult);
+}
+
 export function calculateBatterLine(batter) {
   if (!batter) return "0-0";
   const hits = (batter.homeRuns || 0) + (batter.hits || 0);
@@ -695,6 +727,22 @@ function resetBatterStats(batter) {
 function normalizeSide(side) {
   if (side === SIDES.AWAY || side === SIDES.HOME) return side;
   return null;
+}
+
+function ordinal(number) {
+  const value = Number(number) || 0;
+  const remainder100 = value % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) return `${value}th`;
+  switch (value % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
 }
 
 function numberOrZero(value) {

@@ -2,6 +2,7 @@
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { frameGeometry } from "./frameGeometry.js";
 
 /** 表示終了後にフェードアウトする秒数。ScoreboardView側のマウント延長にも使う。 */
 export const OVERLAY_FADE_OUT_SECONDS = 0.4;
@@ -69,8 +70,9 @@ export default function OverlayEffect({ svgId, overlay, showMatchup, panelColor,
 const HOMERUN_TITLE_FONT_SIZE = 216;
 
 function HomeRunContent({ svgId, showMatchup, panelColor, textColor, batterName }) {
-  const boardTop = showMatchup ? 4 : 198;
-  const boardHeight = showMatchup ? 552 : 362;
+  const geometry = frameGeometry(showMatchup);
+  const boardTop = geometry.bezelY;
+  const boardHeight = geometry.bezelHeight;
   const centerY = boardTop + boardHeight / 2;
   // 対戦選手表示ありのときは選手名を下に添えるためタイトルを少し上に、
   // 表示なしのときは選手名を出さないのでタイトルだけを上下中央に配置する。

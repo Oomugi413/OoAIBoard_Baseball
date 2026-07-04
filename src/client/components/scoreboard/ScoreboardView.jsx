@@ -1,11 +1,17 @@
 // @ts-check
 import { useEffect, useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import dDinProUrl from "../../fonts/d-din-pro/D-DIN-PRO-700-Bold.woff2?url";
 import dDinProExpUrl from "../../fonts/d-din-pro/D-DIN-PRO-Exp-700-Bold.woff2?url";
 import notoSansJp700Url from "../../fonts/noto-sans-jp/NotoSansJP-Japanese-700.woff2?url";
 import OverlayEffect, { OVERLAY_FADE_OUT_SECONDS } from "./OverlayEffect.jsx";
 import RollingText from "./animations/RollingText.jsx";
 import { useFadeOnChange } from "./animations/useFadeOnChange.js";
+import { useCollapseFade } from "./animations/useCollapseFade.js";
+import { isBoardCollapsed } from "../../../shared/scoringRules.mjs";
+import { frameGeometry } from "./frameGeometry.js";
+import { useScoreboardFrame } from "./useScoreboardFrame.js";
 
 /**
  * スコアボード本体（表示専用）。
@@ -15,6 +21,7 @@ import { useFadeOnChange } from "./animations/useFadeOnChange.js";
 export default function ScoreboardView({ board }) {
   const state = board.gameState;
   const [, refreshOverlay] = useState(0);
+  const [, refreshTransition] = useState(0);
   const away = board.teamSettings.away;
   const home = board.teamSettings.home;
   const batter = currentBatter(board);
@@ -27,12 +34,31 @@ export default function ScoreboardView({ board }) {
   const svgId = safeSvgId(board.id);
   const awayGradient = teamGradient(away.teamColor, "#ef2233");
   const homeGradient = teamGradient(home.teamColor, "#2c43e6");
+  const loserGradient = teamGradient("#808080", "#808080");
   const attackingColor = teamColor(board, attacking);
   const attackingTextColor = teamTextColor(board, attacking);
   const defendingColor = teamColor(board, defending);
   const defendingTextColor = teamTextColor(board, defending);
   const overlayPanelColor = overlay?.kind === "homeRun" ? attackingColor : defendingColor;
   const overlayPanelTextColor = overlay?.kind === "homeRun" ? attackingTextColor : defendingTextColor;
+
+  const activeHalfInningTransition = activeTransition(state.halfInningTransition);
+  const finalResult = state.finalResult || null;
+  const collapsed = isBoardCollapsed(state);
+  const effectiveShowMatchup = showMatchup && !collapsed;
+  const transitionLabel = finalResult ? "Final" : activeHalfInningTransition?.label || null;
+  const geometry = frameGeometry(effectiveShowMatchup);
+
+  const articleRef = useRef(null);
+  const svgRef = useRef(null);
+  const bezelRef = useRef(null);
+  const highlightRef = useRef(null);
+  const boardBgRef = useRef(null);
+  const strokeRef = useRef(null);
+  useScoreboardFrame(
+    { articleRef, svgRef, bezelRef, highlightRef, boardBgRef, strokeRef },
+    effectiveShowMatchup
+  );
 
   const plateAppearanceSeq = state.plateAppearanceSeq || 0;
   const previousSeqRef = useRef(plateAppearanceSeq);
@@ -51,14 +77,26 @@ export default function ScoreboardView({ board }) {
   }, [state.overlay?.expiresAt]);
 
   useEffect(() => {
+    const expiresAt = Number(state.halfInningTransition?.expiresAt || 0);
+    if (!expiresAt) return undefined;
+    const timeout = window.setTimeout(
+      () => refreshTransition((current) => current + 1),
+      Math.max(0, expiresAt - Date.now()) + 25
+    );
+    return () => window.clearTimeout(timeout);
+  }, [state.halfInningTransition?.expiresAt]);
+
+  useEffect(() => {
     previousSeqRef.current = plateAppearanceSeq;
   });
 
   return (
-    <article className={`scoreboard${showMatchup ? "" : " no-matchup"}`}>
+    <article ref={articleRef} className={`scoreboard${effectiveShowMatchup ? "" : " no-matchup"}`}>
       <svg
+        ref={svgRef}
         className="scoreboard-svg"
-        viewBox={showMatchup ? "0 0 1200 560" : "0 198 1200 362"}
+        viewBox={geometry.viewBox}
+        preserveAspectRatio="xMidYMax meet"
         role="img"
         aria-label={matchupSummary(board)}
       >
@@ -86,6 +124,11 @@ export default function ScoreboardView({ board }) {
             <stop offset="0" stopColor={homeGradient.light} />
             <stop offset="0.5" stopColor={homeGradient.base} />
             <stop offset="1" stopColor={homeGradient.dark} />
+          </linearGradient>
+          <linearGradient id={`loserBar-${svgId}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={loserGradient.light} />
+            <stop offset="0.5" stopColor={loserGradient.base} />
+            <stop offset="1" stopColor={loserGradient.dark} />
           </linearGradient>
           <linearGradient id={`accent-${svgId}`} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stopColor="#38bdf8" stopOpacity="0" />
@@ -145,17 +188,19 @@ export default function ScoreboardView({ board }) {
             .sb-overlay-k-${svgId} { font-weight: 700; }
             .sb-overlay-badge-${svgId} { font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif; font-size: 46px; font-weight: 700; }
             .sb-overlay-name-${svgId} { font-family: "Noto Sans JP", sans-serif; font-size: 54px; font-weight: 600; }
+            .sb-transition-label-${svgId} { font-size: 92px; font-weight: 700; fill: #ffffff; }
           `}</style>
         </defs>
 
-        <rect x="4" y="4" width="1192" height="552" rx="20" fill={`url(#bezel-${svgId})`} />
-        <rect x="6" y="5" width="1188" height="6" rx="3" fill="#6d778c" opacity="0.5" />
-        <rect x="13" y="13" width="1174" height="534" rx="12" fill={`url(#boardBg-${svgId})`} />
+        <rect ref={bezelRef} x="4" y={geometry.bezelY} width="1192" height={geometry.bezelHeight} rx="20" fill={`url(#bezel-${svgId})`} />
+        <rect ref={highlightRef} x="6" y={geometry.highlightY} width="1188" height="6" rx="3" fill="#6d778c" opacity="0.5" />
+        <rect ref={boardBgRef} x="13" y={geometry.boardBgY} width="1174" height={geometry.boardBgHeight} rx="12" fill={`url(#boardBg-${svgId})`} />
         <rect
+          ref={strokeRef}
           x="13.75"
-          y="13.75"
+          y={geometry.strokeY}
           width="1172.5"
-          height="532.5"
+          height={geometry.strokeHeight}
           rx="11"
           fill="none"
           stroke="#38bdf8"
@@ -164,24 +209,25 @@ export default function ScoreboardView({ board }) {
         />
 
         {showMatchup ? (
-          <>
-            <rect x="20" y="20" width="1160" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
-            <MatchupSvg
-              svgId={svgId}
-              board={board}
-              batter={batter}
-              pitcher={pitcher}
-              attacking={attacking}
-              defending={defending}
-            />
-          </>
+          <MatchupGroup
+            svgId={svgId}
+            board={board}
+            batter={batter}
+            pitcher={pitcher}
+            attacking={attacking}
+            defending={defending}
+            collapsed={collapsed}
+          />
         ) : null}
-        {showMatchup ? (
-          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
-        ) : (
-          <rect x="20" y="198" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} opacity="0.65" />
-        )}
-        <InningSvg svgId={svgId} gameState={state} />
+        {effectiveShowMatchup ? (
+          <rect x="20" y="192" width="1160" height="2.5" rx="1.25" fill={`url(#accent-${svgId})`} />
+        ) : null}
+        <InningGroup
+          svgId={svgId}
+          gameState={state}
+          collapsed={collapsed}
+          hideNumber={Boolean(activeHalfInningTransition)}
+        />
         <line x1="150" y1="214" x2="150" y2="540" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="1" />
 
         <TeamBarSvg
@@ -190,6 +236,8 @@ export default function ScoreboardView({ board }) {
           team={away}
           score={state.score.away}
           absCount={showAbs ? state.abs.away : null}
+          finalResult={finalResult}
+          loserGradient={loserGradient}
         />
         <TeamBarSvg
           svgId={svgId}
@@ -197,23 +245,17 @@ export default function ScoreboardView({ board }) {
           team={home}
           score={state.score.home}
           absCount={showAbs ? state.abs.home : null}
+          finalResult={finalResult}
+          loserGradient={loserGradient}
         />
 
         <line x1="800" y1="214" x2="800" y2="540" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="1" />
-        <BasesSvg svgId={svgId} runners={state.runners} />
-        <RollingText
-          className={`sb-text-${svgId} sb-count-${svgId}`}
-          x="990"
-          y="446"
-          textAnchor="middle"
-          value={`${state.balls}-${state.strikes}`}
-          instant={instantCountReset}
-        />
-        <OutsSvg svgId={svgId} outs={state.outs} />
+        <FieldStatusGroup svgId={svgId} state={state} collapsed={collapsed} instantCountReset={instantCountReset} />
+        <TransitionLabel svgId={svgId} label={transitionLabel} collapsed={collapsed} />
         <OverlayEffect
           svgId={svgId}
           overlay={overlay}
-          showMatchup={showMatchup}
+          showMatchup={effectiveShowMatchup}
           panelColor={overlayPanelColor}
           panelTextColor={overlayPanelTextColor}
         />
@@ -221,6 +263,124 @@ export default function ScoreboardView({ board }) {
     </article>
   );
 }
+
+function activeTransition(transition) {
+  if (!transition) return null;
+  return transition.expiresAt > Date.now() ? transition : null;
+}
+
+function MatchupGroup({ svgId, board, batter, pitcher, attacking, defending, collapsed }) {
+  const groupRef = useRef(null);
+  useCollapseFade(groupRef, collapsed);
+
+  return (
+    <g ref={groupRef}>
+      <rect x="20" y="20" width="1160" height="170" rx="8" fill={`url(#topBand-${svgId})`} />
+      <MatchupSvg
+        svgId={svgId}
+        board={board}
+        batter={batter}
+        pitcher={pitcher}
+        attacking={attacking}
+        defending={defending}
+      />
+    </g>
+  );
+}
+
+function InningGroup({ svgId, gameState, collapsed, hideNumber }) {
+  const triangleRef = useRef(null);
+  const numberRef = useRef(null);
+  useCollapseFade(triangleRef, collapsed);
+  useCollapseFade(numberRef, hideNumber);
+
+  const triangle =
+    gameState.inningHalf === "top" ? "88,244 116,296 60,296" : "60,452 116,452 88,504";
+
+  return (
+    <>
+      <g ref={triangleRef}>
+        <polygon points={triangle} fill="#ffffff" filter={`url(#glowW-${svgId})`} />
+      </g>
+      <g ref={numberRef}>
+        <text
+          className={`sb-text-${svgId} sb-inn-${svgId}`}
+          x="88"
+          y="421"
+          textAnchor="middle"
+          filter={`url(#glowW-${svgId})`}
+        >
+          {gameState.inningNumber}
+        </text>
+      </g>
+    </>
+  );
+}
+
+function FieldStatusGroup({ svgId, state, collapsed, instantCountReset }) {
+  const groupRef = useRef(null);
+  useCollapseFade(groupRef, collapsed);
+
+  return (
+    <g ref={groupRef}>
+      <BasesSvg svgId={svgId} runners={state.runners} />
+      <RollingText
+        className={`sb-text-${svgId} sb-count-${svgId}`}
+        x="990"
+        y="446"
+        textAnchor="middle"
+        value={`${state.balls}-${state.strikes}`}
+        instant={instantCountReset}
+      />
+      <OutsSvg svgId={svgId} outs={state.outs} />
+    </g>
+  );
+}
+
+function TransitionLabel({ svgId, label, collapsed }) {
+  const textRef = useRef(null);
+  const isFirstRender = useRef(true);
+  const [displayLabel, setDisplayLabel] = useState(label || "");
+
+  useGSAP(
+    () => {
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        if (label) setDisplayLabel(label);
+        gsap.set(textRef.current, { opacity: collapsed ? 1 : 0 });
+        return;
+      }
+      gsap.killTweensOf(textRef.current);
+      if (collapsed) {
+        if (label) setDisplayLabel(label);
+        gsap.to(textRef.current, { opacity: 1, duration: 0.3, ease: "power1.out" });
+      } else {
+        gsap.to(textRef.current, { opacity: 0, duration: 0.3, ease: "power1.in" });
+      }
+    },
+    { scope: textRef, dependencies: [collapsed, label] }
+  );
+
+  return (
+    <text
+      ref={textRef}
+      className={`sb-text-${svgId} sb-transition-label-${svgId}`}
+      x="990"
+      y={TRANSITION_LABEL_Y}
+      textAnchor="middle"
+    >
+      {displayLabel}
+    </text>
+  );
+}
+
+// 折りたたみ時（対戦選手表示の有無に関わらず）の縮小フレームの上下中央に配置する。
+const TRANSITION_LABEL_FONT_SIZE = 92;
+const NO_MATCHUP_FRAME_GEOMETRY = frameGeometry(false);
+const TRANSITION_LABEL_Y =
+  NO_MATCHUP_FRAME_GEOMETRY.boardBgY +
+  NO_MATCHUP_FRAME_GEOMETRY.boardBgHeight / 2 +
+  TRANSITION_LABEL_FONT_SIZE * 0.34;
 
 function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
   const batterRowRef = useRef(null);
@@ -265,27 +425,8 @@ function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
   );
 }
 
-function InningSvg({ svgId, gameState }) {
-  const triangle =
-    gameState.inningHalf === "top" ? "88,244 116,296 60,296" : "60,452 116,452 88,504";
 
-  return (
-    <>
-      <polygon points={triangle} fill="#ffffff" filter={`url(#glowW-${svgId})`} />
-      <text
-        className={`sb-text-${svgId} sb-inn-${svgId}`}
-        x="88"
-        y="421"
-        textAnchor="middle"
-        filter={`url(#glowW-${svgId})`}
-      >
-        {gameState.inningNumber}
-      </text>
-    </>
-  );
-}
-
-function TeamBarSvg({ svgId, side, team, score, absCount }) {
+function TeamBarSvg({ svgId, side, team, score, absCount, finalResult, loserGradient }) {
   const y = side === "away" ? 212 : 382;
   const logoCy = side === "away" ? 291 : 461;
   const labelTop = y;
@@ -296,7 +437,9 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
   const scoreY = side === "away" ? 345 : 515;
   const dividerTop = side === "away" ? 226 : 396;
   const dividerBottom = side === "away" ? 356 : 526;
-  const gradientId = side === "away" ? `awayBar-${svgId}` : `homeBar-${svgId}`;
+  const isLoser = Boolean(finalResult?.winner) && finalResult.winner !== side;
+  const gradientId = isLoser ? `loserBar-${svgId}` : side === "away" ? `awayBar-${svgId}` : `homeBar-${svgId}`;
+  const textColor = isLoser ? "#ffffff" : team.textColor || "#ffffff";
   const clipId = `${side}TeamClip-${svgId}`;
   const label = team.abbreviation || team.name;
   const labelFontSize = Math.round(teamLabelFontSize(label) * teamAbbreviationScale(team));
@@ -314,7 +457,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
       </defs>
       <rect x="162" y={y} width="638" height="158" rx="13" fill={`url(#${gradientId})`} />
       <rect x="162" y={y} width="638" height="79" rx="13" fill="#ffffff" opacity="0.10" />
-      {absCount === null ? null : <AbsPipsSvg absCount={absCount} teamY={y} color={team.textColor || "#ffffff"} />}
+      {absCount === null ? null : <AbsPipsSvg absCount={absCount} teamY={y} color={textColor} />}
       <TeamLogoSvg team={team} cx={263} cy={logoCy} />
       <g clipPath={`url(#${clipId})`}>
         <text
@@ -322,7 +465,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
           x="0"
           y="0"
           fontSize={labelFontSize}
-          fill={team.textColor || "#ffffff"}
+          fill={textColor}
           dominantBaseline="middle"
           textAnchor={textAnchor}
           transform={`translate(${textX} ${textY}) scale(${labelWidthScale} 1)`}
@@ -345,7 +488,7 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
         x="720"
         y={scoreY}
         textAnchor="middle"
-        fill={team.textColor || "#ffffff"}
+        fill={textColor}
         filter={`url(#glowW-${svgId})`}
         value={score}
       />

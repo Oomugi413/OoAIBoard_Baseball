@@ -90,6 +90,7 @@ export default function ScoreInputPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const board = (state.boards || []).find((item) => item.id === boardId);
 
   const runAction = async (type, payload = {}) => {
@@ -108,7 +109,7 @@ export default function ScoreInputPage() {
     }
   };
 
-  const menuOpen = editOpen || playerOpen || resetConfirmOpen;
+  const menuOpen = editOpen || playerOpen || resetConfirmOpen || finishConfirmOpen;
 
   useEffect(() => {
     if (!board || pending || menuOpen) return undefined;
@@ -232,6 +233,17 @@ export default function ScoreInputPage() {
             </ControlGroup>
           ) : null}
 
+          <ControlGroup title="試合終了">
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={pending || Boolean(board.gameState.finalResult)}
+              onClick={() => setFinishConfirmOpen(true)}
+            >
+              試合終了
+            </Button>
+          </ControlGroup>
+
           <ControlGroup title="履歴とメニュー">
             <ActionButton label="戻る" type="history:undo" disabled={pending} onAction={runAction} />
             <ActionButton label="進む" type="history:redo" disabled={pending} onAction={runAction} />
@@ -275,6 +287,17 @@ export default function ScoreInputPage() {
         }}
         onClose={() => setResetConfirmOpen(false)}
       />
+      <ConfirmDialog
+        open={finishConfirmOpen}
+        title="試合を終了しますか？"
+        message={`${finishPreviewMessage(board)} 敗者側の帯はグレー表示になり、"Final" を表示します。スコアリセット、または「戻る」で取り消せます。`}
+        confirmLabel="試合終了する"
+        onConfirm={() => {
+          setFinishConfirmOpen(false);
+          runAction("game:finish");
+        }}
+        onClose={() => setFinishConfirmOpen(false)}
+      />
       <Snackbar
         open={Boolean(message)}
         autoHideDuration={4000}
@@ -289,4 +312,16 @@ function isEditableTarget(target) {
   if (!(target instanceof Element)) return false;
   if (target.closest("input, textarea, select")) return true;
   return Boolean(target.closest("[contenteditable='true']"));
+}
+
+function teamLabel(board, side) {
+  const team = board.teamSettings?.[side];
+  return team?.abbreviation || team?.name || (side === "away" ? "先攻" : "後攻");
+}
+
+function finishPreviewMessage(board) {
+  const { away, home } = board.gameState.score;
+  if (away === home) return "現在同点のため、どちらの帯も配色を変えずに試合を終了します。";
+  const winnerSide = away > home ? "away" : "home";
+  return `現在のスコアでは ${teamLabel(board, winnerSide)} の勝利として試合を終了します。`;
 }

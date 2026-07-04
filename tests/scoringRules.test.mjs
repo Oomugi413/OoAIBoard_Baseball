@@ -41,6 +41,42 @@ function run(board, type, payload = {}) {
   board = run(board, "inning:change");
   assert.equal(board.gameState.inningHalf, "bottom");
   assert.equal(board.gameState.outs, 0);
+  assert.equal(board.gameState.halfInningTransition.label, "Mid 1st");
+
+  board = run(board, "outs:adjust", { delta: 3 });
+  board = run(board, "inning:change");
+  assert.equal(board.gameState.inningHalf, "top");
+  assert.equal(board.gameState.inningNumber, 2);
+  assert.equal(board.gameState.halfInningTransition.label, "End 1st");
+
+  board = run(board, "history:undo");
+  assert.equal(board.gameState.inningHalf, "bottom");
+  assert.equal(board.gameState.halfInningTransition.label, "Mid 1st");
+}
+
+{
+  // game:finishは得点の多いほうを自動的に勝者にする。同点はwinner: null(どちらもグレー化しない)。
+  let board = createBoard("test");
+  assert.equal(board.gameState.finalResult, null);
+  board = run(board, "score:adjust", { side: "away", delta: 3 });
+  board = run(board, "game:finish");
+  assert.deepEqual(board.gameState.finalResult, { winner: "away" });
+
+  // 「戻る」で試合終了操作自体を取り消せる。
+  board = run(board, "history:undo");
+  assert.equal(board.gameState.finalResult, null);
+
+  board = run(board, "score:adjust", { side: "home", delta: 5 });
+  board = run(board, "game:finish");
+  assert.deepEqual(board.gameState.finalResult, { winner: "home" });
+  board = run(board, "game:reset");
+  assert.equal(board.gameState.finalResult, null);
+
+  // 同点の場合はwinner: null。
+  board = run(board, "score:adjust", { side: "away", delta: 2 });
+  board = run(board, "score:adjust", { side: "home", delta: 2 });
+  board = run(board, "game:finish");
+  assert.deepEqual(board.gameState.finalResult, { winner: null });
 }
 
 {

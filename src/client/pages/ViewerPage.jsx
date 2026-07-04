@@ -15,6 +15,7 @@ import Typography from "@mui/material/Typography";
 import { useServerState } from "../api/useServerState.js";
 import TopBar from "../components/common/TopBar.jsx";
 import ScoreboardView from "../components/scoreboard/ScoreboardView.jsx";
+import { isBoardCollapsed } from "../../shared/scoringRules.mjs";
 import {
   BOARD_ASPECT_RATIO,
   DEFAULT_BOARD_WIDTH,
@@ -33,7 +34,7 @@ import {
 } from "../viewer/viewerSettings.js";
 
 const RESIZE_HANDLES = ["n", "e", "s", "w", "ne", "se", "sw", "nw"];
-const COMPACT_BOARD_ASPECT_RATIO = 1200 / 362;
+const COMPACT_BOARD_ASPECT_RATIO = 1200 / 380;
 
 export default function ViewerPage() {
   const { state } = useServerState();
@@ -43,10 +44,26 @@ export default function ViewerPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
+  // ユーザーが何もない場所をクリックして選択を意図的に外した場合、SSEでboardsが
+  // 更新されるたびに自動で再選択されてしまわないようにするためのフラグ。
+  const manuallyDeselectedRef = useRef(false);
 
   useEffect(() => {
-    setSelectedBoardId((current) => resolveSelectedBoardId(boards, current));
+    setSelectedBoardId((current) => {
+      if (manuallyDeselectedRef.current && !current) return current;
+      return resolveSelectedBoardId(boards, current);
+    });
   }, [boards]);
+
+  const selectBoard = (id) => {
+    manuallyDeselectedRef.current = false;
+    setSelectedBoardId(id);
+  };
+
+  const deselectBoard = () => {
+    manuallyDeselectedRef.current = true;
+    setSelectedBoardId("");
+  };
 
   useEffect(() => {
     document.body.style.background = viewerSettings.backgroundColor;
@@ -112,7 +129,7 @@ export default function ViewerPage() {
           selectedTransform={selectedTransform}
           backgroundColor={viewerSettings.backgroundColor}
           onBackground={updateBackground}
-          onSelectBoard={setSelectedBoardId}
+          onSelectBoard={selectBoard}
           onTransform={updateSelectedTransform}
           onReset={resetSelected}
           onExport={exportSettings}
@@ -133,6 +150,9 @@ export default function ViewerPage() {
             overflow: "hidden"
           }}
           data-viewer-stage
+          onClick={(event) => {
+            if (event.target === event.currentTarget) deselectBoard();
+          }}
         >
           {boards.length ? (
             boards.map((board) => (
@@ -142,7 +162,7 @@ export default function ViewerPage() {
                 selected={board.id === selectedBoardId}
                 transform={getBoardTransform(viewerSettings, board.id)}
                 zIndex={getBoardZIndex(viewerSettings, board.id)}
-                onSelect={setSelectedBoardId}
+                onSelect={selectBoard}
                 onTransform={(next) => persistSettings(setBoardTransform(viewerSettings, board.id, next))}
               />
             ))
@@ -332,9 +352,25 @@ function DraftNumberField({ label, disabled, value, onChange, onApply, inputProp
 
 function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform }) {
   const pointerState = useRef(null);
+  const [, refreshTransition] = useState(0);
   const visualWidth = scaleToBoardSize(transform.scale);
-  const boardAspectRatio = board.displayOptions.showMatchup ? BOARD_ASPECT_RATIO : COMPACT_BOARD_ASPECT_RATIO;
+  const effectiveShowMatchup = board.displayOptions.showMatchup && !isBoardCollapsed(board.gameState);
+  const boardAspectRatio = effectiveShowMatchup ? BOARD_ASPECT_RATIO : COMPACT_BOARD_ASPECT_RATIO;
   const visualHeight = visualWidth / boardAspectRatio;
+
+  // 攻守交代の中間表示は、サーバーからの新しい通知なしで10秒後に自動終了する。
+  // board propが更新されない限りこのコンポーネントは再レンダリングされないため、
+  // ScoreboardView内部と同様のタイマーがないと、折りたたみ状態のままの高さで
+  // 取り残され、展開後のスコアボード本体が枠からはみ出して見える不具合になる。
+  useEffect(() => {
+    const expiresAt = Number(board.gameState.halfInningTransition?.expiresAt || 0);
+    if (!expiresAt) return undefined;
+    const timeout = window.setTimeout(
+      () => refreshTransition((current) => current + 1),
+      Math.max(0, expiresAt - Date.now()) + 25
+    );
+    return () => window.clearTimeout(timeout);
+  }, [board.gameState.halfInningTransition?.expiresAt]);
 
   const startPointer = (event) => {
     if (event.button !== 0) return;
@@ -401,7 +437,12 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
         right: `${transform.x}px`,
         bottom: `${transform.y}px`,
         width: `${visualWidth}px`,
-        height: `${visualHeight}px`,
+        // heightは明示指定しない。中の.scoreboardがGSAPでaspect-ratioを直接
+        // アニメーションさせる（useScoreboardFrame.js）ため、ここで別途pxの
+        // heightをCSSトランジションさせると、2つの独立したアニメーションの
+        // イージングがずれて、折りたたみ中に中身が外枠からはみ出して見える
+        // 不具合になっていた。高さは常に中身（.scoreboard）に追従させる。
+        height: "auto",
         zIndex,
         cursor: "move",
         touchAction: "none",

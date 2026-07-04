@@ -11,14 +11,21 @@
   font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif;
   font-weight: 900;
   filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.42));
+  /* aspect-ratioはuseScoreboardFrame.jsがGSAPで直接インラインスタイルを書き換えて
+     アニメーションさせる（viewBoxと数値を完全同期させるため）。CSSトランジションを
+     併用すると二重に効いて速度がずれるので、ここでは指定しない。 */
 }
 
 .scoreboard.no-matchup {
-  aspect-ratio: 1200 / 362;
+  aspect-ratio: 1200 / 380;
 }
 
 .scoreboard-svg {
+  /* height:auto だと viewBox のアスペクト比だけから高さを自己計算してしまい、
+     親(.scoreboard)の aspect-ratio トランジション中に高さがズレて一瞬ジャンプ
+     して見える不具合があったため、常に親の高さへ完全追従させる。実際の見た目の
+     フィットは preserveAspectRatio="xMidYMax meet" 側で行う。 */
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }

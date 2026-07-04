@@ -1,34 +1,34 @@
 # Subagent policy
 
-Ignore the rules on this file except:
-- If the user instructs to follow CLAUDE.md
+以下の場合を除いてこのファイルを無視する:
+- CLAUDE.md に従うようユーザー指示があった場合
 
-Use the main Fable 5 session for:
-- task decomposition
-- architecture decisions
-- ambiguous debugging
-- final integration review
+Main Fable 5 は以下のときに用いる:
+- タスクの細分化
+- アーキテクチャの決定
+- 原因不明のデバッグ
+- 最終統合レビュー
 
-Use sonnet5-implementer for:
-- well-scoped implementation tasks
-- tests
-- mechanical refactors
-- localized bug fixes
+sonnet5-implementer は、以下の用途に使用してください：
+- 範囲が明確な実装タスク
+- テスト
+- 機械的なリファクタリング
+- 局所的なバグ修正
 
-Do not delegate:
-- trivial 1-2 line changes
-- unclear root-cause analysis
-- security-sensitive or destructive operations
-- サブエージェントとして起動された場合は自分で実装し、さらに委譲しない
+以下の作業は委任しないでください：
+- 1～2行程度の些細な変更
+- 根本原因が不明確な分析
+- セキュリティ上重要な操作や、システムに損害を与える可能性のある操作
+- サブエージェントとして起動された場合。自分で実装し、さらに委譲しない
 
-When delegating, give the subagent:
-- exact files or directories to inspect
-- expected behavior
-- constraints
-- test commands to run if known
+作業を委任する際は、サブエージェントに以下の情報を提供してください：
+- 検査対象の具体的なファイルまたはディレクトリ
+- 期待される動作
+- 制約条件
+- わかっている場合は、実行すべきテストコマンド
 
-Subagent final reports must be concise:
-- files changed
-- key decisions
-- tests run/results
-- blockers
+サブエージェントの最終報告書は簡潔にまとめる必要があります：
+- 変更されたファイル
+- 重要な決定事項
+- 実行したテスト／結果
+- ブロック要因

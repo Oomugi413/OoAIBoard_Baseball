@@ -7,7 +7,9 @@
       "Bash(npx vite *)",
       "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"plate:result\",\"payload\":{\"result\":\"strikeoutSwinging\"}}')",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const b=JSON.parse\\(d\\);console.log\\(JSON.stringify\\(b.gameState.overlay\\)\\);console.log\\('seq',b.gameState.plateAppearanceSeq\\);}\\)\")",
-      "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"plate:result\",\"payload\":{\"result\":\"strikeoutLooking\"}}')"
+      "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"plate:result\",\"payload\":{\"result\":\"strikeoutLooking\"}}')",
+      "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"score:adjust\",\"payload\":{\"side\":\"away\",\"delta\":-1}}')",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const b=JSON.parse\\(d\\);console.log\\(JSON.stringify\\(b.gameState.score\\)\\);}\\)\")"
     ]
   }
 }
