@@ -4,7 +4,10 @@
       "Bash(npm install *)",
       "Bash(mv 'C:/Users/riyok/AppData/Local/Temp/claude/C--Users-riyok-code-Baseball1/38df8804-0f11-4897-aa92-a8b9f5f b2248/scratchpad/smoke2.mjs' C:/Users/riyok/AppData/Local/Temp/claude/C--Users-riyok-code-Baseball1/38df8804-0f11-4897-aa92-a8b9f5fb2248/scratchpad/smoke2.mjs)",
       "Bash(rm -rf \"C:/Users/riyok/AppData/Local/Temp/claude/C--Users-riyok-code-Baseball1/38df8804-0f11-4897-aa92-a8b9f5f b2248\")",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"plate:result\",\"payload\":{\"result\":\"strikeoutSwinging\"}}')",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const b=JSON.parse\\(d\\);console.log\\(JSON.stringify\\(b.gameState.overlay\\)\\);console.log\\('seq',b.gameState.plateAppearanceSeq\\);}\\)\")",
+      "Bash(curl -s -X POST http://localhost:52582/api/boards/f179d26b-56df-4913-b4bf-b70565a48a15/action -H \"Content-Type: application/json\" -d '{\"type\":\"plate:result\",\"payload\":{\"result\":\"strikeoutLooking\"}}')"
     ]
   }
 }

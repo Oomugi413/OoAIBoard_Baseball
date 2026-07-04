@@ -32,7 +32,11 @@ export function createDefaultGameState() {
       away: 2,
       home: 2
     },
-    overlay: null
+    overlay: null,
+    // 打席結果ボタンによるカウントリセットだけを検知するための単調カウンタ。
+    // クライアント側はこの値の変化を「瞬時にカウントを0-0へ戻す」トリガーとして使う
+    // （カウントRS・スコアリセットによるリセットとは区別する）。
+    plateAppearanceSeq: 0
   };
 }
 
@@ -312,7 +316,8 @@ function redo(board) {
 
 function resetGame(board) {
   const next = structuredCloneCompat(board);
-  next.gameState = createDefaultGameState();
+  const previousSeq = board.gameState?.plateAppearanceSeq || 0;
+  next.gameState = { ...createDefaultGameState(), plateAppearanceSeq: previousSeq };
   next.playerSettings = resetPlayerGameValues(next.playerSettings);
   next.undoHistory = [];
   next.redoHistory = [];
@@ -365,7 +370,10 @@ function applyPlateAppearance(board, result, settings) {
       board.gameState.score[attackingSide] += runs;
       clearRunners(board.gameState);
       addBatterStat(board, "homeRuns");
-      board.gameState.overlay = createOverlay("HOME RUN", settings);
+      board.gameState.overlay = createOverlay("HOME RUN", settings, {
+        kind: "homeRun",
+        batterName: getCurrentBatter(board)?.playerName || ""
+      });
       break;
     }
     case "hit":
@@ -385,12 +393,21 @@ function applyPlateAppearance(board, result, settings) {
     case "strikeoutSwinging":
       addBatterStat(board, "strikeoutsSwinging");
       addPitcherStat(board, "strikeouts");
-      board.gameState.overlay = createOverlay("K", settings, false, "strikeout");
+      board.gameState.overlay = createOverlay("K", settings, {
+        kind: "strikeout",
+        batterName: getCurrentBatter(board)?.playerName || "",
+        pitcherStrikeouts: getCurrentPitcher(board)?.strikeouts || 0
+      });
       break;
     case "strikeoutLooking":
       addBatterStat(board, "strikeoutsLooking");
       addPitcherStat(board, "strikeouts");
-      board.gameState.overlay = createOverlay("K", settings, true, "strikeout");
+      board.gameState.overlay = createOverlay("K", settings, {
+        kind: "strikeout",
+        reverse: true,
+        batterName: getCurrentBatter(board)?.playerName || "",
+        pitcherStrikeouts: getCurrentPitcher(board)?.strikeouts || 0
+      });
       break;
     case "other":
       addBatterStat(board, "others");
@@ -401,6 +418,7 @@ function applyPlateAppearance(board, result, settings) {
 
   board.gameState.balls = 0;
   board.gameState.strikes = 0;
+  board.gameState.plateAppearanceSeq = (board.gameState.plateAppearanceSeq || 0) + 1;
   advanceBatter(board);
 }
 
@@ -465,7 +483,8 @@ export function calculateBatterLine(batter) {
   return `${hits}-${atBats}`;
 }
 
-function createOverlay(message, settings, reverse = false, kind = "default") {
+function createOverlay(message, settings, options = {}) {
+  const { reverse = false, kind = "homeRun", batterName = "", pitcherStrikeouts = 0 } = options;
   const seconds = kind === "strikeout"
     ? DEFAULT_OVERLAY_SECONDS
     : Number(settings?.overlayDisplaySeconds || DEFAULT_OVERLAY_SECONDS);
@@ -473,6 +492,8 @@ function createOverlay(message, settings, reverse = false, kind = "default") {
     message,
     reverse,
     kind,
+    batterName,
+    pitcherStrikeouts,
     expiresAt: Date.now() + seconds * 1000
   };
 }
@@ -648,6 +669,13 @@ function patchPlayers(board, payload) {
           order
         }
       ];
+    }
+
+    // 末尾から指定件数だけ削除する。1人目（先頭）は常に残す。
+    const removedCount = Math.max(0, Number(payload?.removedPitchers?.[side] || 0));
+    if (removedCount > 0) {
+      const keepLength = Math.max(1, (sideSettings.pitchers || []).length - removedCount);
+      sideSettings.pitchers = (sideSettings.pitchers || []).slice(0, keepLength);
     }
   }
 

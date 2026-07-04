@@ -127,7 +127,50 @@ function run(board, type, payload = {}) {
 
 {
   let board = createBoard("test");
+  assert.equal(board.playerSettings.away.pitchers.length, 1);
+  board = run(board, "players:patch", {
+    addedPitchers: {
+      away: [{ pitcherName: "A.Pitcher2" }, { pitcherName: "A.Pitcher3" }]
+    }
+  });
+  assert.equal(board.playerSettings.away.pitchers.length, 3);
+
+  board = run(board, "players:patch", { removedPitchers: { away: 1 } });
+  assert.equal(board.playerSettings.away.pitchers.length, 2);
+  assert.equal(board.playerSettings.away.pitchers[1].pitcherName, "A.Pitcher2");
+
+  // 1人しかいない場合は削除しても最後の1人は残す。
+  board = run(board, "players:patch", { removedPitchers: { away: 10 } });
+  assert.equal(board.playerSettings.away.pitchers.length, 1);
+}
+
+{
+  let board = createBoard("test");
   assert.equal(board.playerSettings.away.battingOrder[0].position, undefined);
+}
+
+{
+  let board = createBoard("test");
+  board = run(board, "plate:result", { result: "strikeoutSwinging" });
+  assert.equal(board.gameState.overlay.kind, "strikeout");
+  assert.equal(board.gameState.overlay.batterName, "A.Batter1");
+  assert.equal(board.gameState.overlay.pitcherStrikeouts, 1);
+  const seqAfterFirst = board.gameState.plateAppearanceSeq;
+  assert.equal(seqAfterFirst, 1);
+
+  board = run(board, "plate:result", { result: "homeRun" });
+  assert.equal(board.gameState.overlay.kind, "homeRun");
+  assert.equal(board.gameState.overlay.batterName, "A.Batter2");
+  assert.equal(board.gameState.plateAppearanceSeq, 2);
+
+  // count:reset (カウントRS) must NOT bump the plate-appearance sequence,
+  // since only plate-result-triggered count resets should snap instantly on the client.
+  board = run(board, "count:reset");
+  assert.equal(board.gameState.plateAppearanceSeq, 2);
+
+  // game:reset (スコアリセット) must preserve the sequence value across the reset too.
+  board = run(board, "game:reset");
+  assert.equal(board.gameState.plateAppearanceSeq, 2);
 }
 
 console.log("scoringRules tests passed");

@@ -1,8 +1,11 @@
 // @ts-check
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dDinProUrl from "../../fonts/d-din-pro/D-DIN-PRO-700-Bold.woff2?url";
 import dDinProExpUrl from "../../fonts/d-din-pro/D-DIN-PRO-Exp-700-Bold.woff2?url";
 import notoSansJp700Url from "../../fonts/noto-sans-jp/NotoSansJP-Japanese-700.woff2?url";
+import OverlayEffect, { OVERLAY_FADE_OUT_SECONDS } from "./OverlayEffect.jsx";
+import RollingText from "./animations/RollingText.jsx";
+import { useFadeOnChange } from "./animations/useFadeOnChange.js";
 
 /**
  * スコアボード本体（表示専用）。
@@ -24,24 +27,35 @@ export default function ScoreboardView({ board }) {
   const svgId = safeSvgId(board.id);
   const awayGradient = teamGradient(away.teamColor, "#ef2233");
   const homeGradient = teamGradient(home.teamColor, "#2c43e6");
+  const attackingColor = teamColor(board, attacking);
+  const attackingTextColor = teamTextColor(board, attacking);
+  const defendingColor = teamColor(board, defending);
+  const defendingTextColor = teamTextColor(board, defending);
+  const overlayPanelColor = overlay?.kind === "homeRun" ? attackingColor : defendingColor;
+  const overlayPanelTextColor = overlay?.kind === "homeRun" ? attackingTextColor : defendingTextColor;
+
+  const plateAppearanceSeq = state.plateAppearanceSeq || 0;
+  const previousSeqRef = useRef(plateAppearanceSeq);
+  const instantCountReset = plateAppearanceSeq !== previousSeqRef.current;
 
   useEffect(() => {
     const expiresAt = Number(state.overlay?.expiresAt || 0);
     if (!expiresAt) return undefined;
+    // 表示終了後もフェードアウトの間だけマウントを維持してから消す。
+    const hideAt = expiresAt + OVERLAY_FADE_OUT_SECONDS * 1000;
     const timeout = window.setTimeout(
       () => refreshOverlay((current) => current + 1),
-      Math.max(0, expiresAt - Date.now()) + 25
+      Math.max(0, hideAt - Date.now()) + 25
     );
     return () => window.clearTimeout(timeout);
   }, [state.overlay?.expiresAt]);
 
+  useEffect(() => {
+    previousSeqRef.current = plateAppearanceSeq;
+  });
+
   return (
     <article className={`scoreboard${showMatchup ? "" : " no-matchup"}`}>
-      {overlay ? (
-        <div className={`overlay${overlay.kind === "strikeout" ? " strikeout" : ""}${overlay.reverse ? " reverse" : ""}`}>
-          {overlay.message}
-        </div>
-      ) : null}
       <svg
         className="scoreboard-svg"
         viewBox={showMatchup ? "0 0 1200 560" : "0 198 1200 362"}
@@ -127,6 +141,10 @@ export default function ScoreboardView({ board }) {
             .sb-score-${svgId} { font-size: 150px; font-weight: 700; }
             .sb-inn-${svgId} { font-size: 128px; font-weight: 700; fill: #ffffff; }
             .sb-count-${svgId} { font-size: 104px; font-weight: 700; fill: #f2f6ff; letter-spacing: 2px; }
+            .sb-homerun-title-${svgId} { font-size: 216px; font-weight: 700; }
+            .sb-overlay-k-${svgId} { font-weight: 700; }
+            .sb-overlay-badge-${svgId} { font-family: "D-DIN PRO Exp", "D-DIN PRO", "Noto Sans JP", sans-serif; font-size: 46px; font-weight: 700; }
+            .sb-overlay-name-${svgId} { font-family: "Noto Sans JP", sans-serif; font-size: 54px; font-weight: 600; }
           `}</style>
         </defs>
 
@@ -183,46 +201,66 @@ export default function ScoreboardView({ board }) {
 
         <line x1="800" y1="214" x2="800" y2="540" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="1" />
         <BasesSvg svgId={svgId} runners={state.runners} />
-        <text
+        <RollingText
           className={`sb-text-${svgId} sb-count-${svgId}`}
           x="990"
           y="446"
           textAnchor="middle"
-        >
-          {state.balls}-{state.strikes}
-        </text>
+          value={`${state.balls}-${state.strikes}`}
+          instant={instantCountReset}
+        />
         <OutsSvg svgId={svgId} outs={state.outs} />
+        <OverlayEffect
+          svgId={svgId}
+          overlay={overlay}
+          showMatchup={showMatchup}
+          panelColor={overlayPanelColor}
+          panelTextColor={overlayPanelTextColor}
+        />
       </svg>
     </article>
   );
 }
 
 function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
+  const batterRowRef = useRef(null);
+  const pitcherRowRef = useRef(null);
+  const batterKey = `${attacking}:${board.playerSettings.currentBattingOrderIndex?.[attacking] || 0}`;
+  const defendingPitchers = board.playerSettings[defending]?.pitchers || [];
+  const pitcherKey = `${defending}:${defendingPitchers.length}:${pitcher?.pitcherName || ""}`;
+
+  useFadeOnChange(batterRowRef, batterKey);
+  useFadeOnChange(pitcherRowRef, pitcherKey);
+
   return (
     <>
-      <rect x="30" y="30" width="62" height="62" rx="11" fill={teamColor(board, attacking)} />
-      <rect x="30" y="30" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
-      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="74" textAnchor="middle" fill={teamTextColor(board, attacking)}>
-        {batterLabel(batter)}
-      </text>
-      <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="82">
-        {batter?.playerName || "N.Batter"}
-      </text>
-      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="79" textAnchor="end">
-        {batterLine(batter)}
-      </text>
+      <g ref={batterRowRef}>
+        <rect x="30" y="30" width="62" height="62" rx="11" fill={teamColor(board, attacking)} />
+        <rect x="30" y="30" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
+        <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="74" textAnchor="middle" fill={teamTextColor(board, attacking)}>
+          {batterLabel(batter)}
+        </text>
+        <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="82">
+          {batter?.playerName || "N.Batter"}
+        </text>
+        <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="79" textAnchor="end">
+          {batterLine(batter)}
+        </text>
+      </g>
       <line x1="30" y1="105" x2="1170" y2="105" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
-      <rect x="30" y="117" width="62" height="62" rx="11" fill={teamColor(board, defending)} />
-      <rect x="30" y="117" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
-      <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="161" textAnchor="middle" fill={teamTextColor(board, defending)}>
-        P
-      </text>
-      <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="169">
-        {pitcher?.pitcherName || "N.Pitcher"}
-      </text>
-      <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="166" textAnchor="end">
-        P.{pitcher?.pitchCount || 0}
-      </text>
+      <g ref={pitcherRowRef}>
+        <rect x="30" y="117" width="62" height="62" rx="11" fill={teamColor(board, defending)} />
+        <rect x="30" y="117" width="62" height="30" rx="11" fill="#ffffff" opacity="0.14" />
+        <text className={`sb-text-${svgId} sb-chip-${svgId}`} x="61" y="161" textAnchor="middle" fill={teamTextColor(board, defending)}>
+          P
+        </text>
+        <text className={`sb-text-${svgId} sb-name-${svgId}`} x="110" y="169">
+          {pitcher?.pitcherName || "N.Pitcher"}
+        </text>
+        <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="166" textAnchor="end">
+          P.{pitcher?.pitchCount || 0}
+        </text>
+      </g>
     </>
   );
 }
@@ -302,16 +340,15 @@ function TeamBarSvg({ svgId, side, team, score, absCount }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      <text
+      <RollingText
         className={`sb-text-${svgId} sb-score-${svgId}`}
         x="720"
         y={scoreY}
         textAnchor="middle"
         fill={team.textColor || "#ffffff"}
         filter={`url(#glowW-${svgId})`}
-      >
-        {score}
-      </text>
+        value={score}
+      />
     </>
   );
 }
@@ -517,5 +554,5 @@ function matchupSummary(board) {
 
 function activeOverlay(overlay) {
   if (!overlay) return null;
-  return overlay.expiresAt > Date.now() ? overlay : null;
+  return overlay.expiresAt + OVERLAY_FADE_OUT_SECONDS * 1000 > Date.now() ? overlay : null;
 }

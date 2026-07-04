@@ -32,6 +32,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   const [form, setForm] = useState(() => createPlayerForm(board));
   const dirtyFieldsRef = useRef(new Set());
   const addedPitchersRef = useRef({ away: 0, home: 0 });
+  const removedPitchersRef = useRef({ away: 0, home: 0 });
   const initialPitcherLengthsRef = useRef(createInitialPitcherLengths(board));
 
   const updateBatter = (side, index, field, value) => {
@@ -83,6 +84,27 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
     });
   };
 
+  const removePitcher = (side) => {
+    setForm((current) => {
+      const pitchers = current[side].pitchers;
+      if (pitchers.length <= 1) return current;
+      const isUnsavedAddition = pitchers.length > initialPitcherLengthsRef.current[side];
+      if (isUnsavedAddition) {
+        addedPitchersRef.current[side] = Math.max(0, addedPitchersRef.current[side] - 1);
+      } else {
+        initialPitcherLengthsRef.current[side] = Math.max(1, initialPitcherLengthsRef.current[side] - 1);
+        removedPitchersRef.current[side] += 1;
+      }
+      return {
+        ...current,
+        [side]: {
+          ...current[side],
+          pitchers: pitchers.slice(0, -1)
+        }
+      };
+    });
+  };
+
   const savePlayerMenu = async () => {
     setSaving(true);
     try {
@@ -94,6 +116,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
             form,
             dirtyFieldsRef.current,
             addedPitchersRef.current,
+            removedPitchersRef.current,
             initialPitcherLengthsRef.current
           )
         })
@@ -101,6 +124,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
       await refresh();
       dirtyFieldsRef.current = new Set();
       addedPitchersRef.current = { away: 0, home: 0 };
+      removedPitchersRef.current = { away: 0, home: 0 };
       initialPitcherLengthsRef.current = createPitcherLengthsFromForm(form);
       onSaved("選手名メニューを保存しました。");
     } catch (error) {
@@ -141,6 +165,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
             onBatterChange={updateBatter}
             onPitcherChange={updatePitcher}
             onAddPitcher={addPitcher}
+            onRemovePitcher={removePitcher}
           />
           <Button
             variant="contained"
@@ -162,7 +187,8 @@ function PlayerSideSection({
   saving,
   onBatterChange,
   onPitcherChange,
-  onAddPitcher
+  onAddPitcher,
+  onRemovePitcher
 }) {
   return (
     <Stack spacing={2}>
@@ -221,14 +247,25 @@ function PlayerSideSection({
           <Typography variant="subtitle1" fontWeight="bold">
             ピッチャー一覧
           </Typography>
-          <Button
-            variant="outlined"
-            disabled={saving}
-            onClick={() => onAddPitcher(side)}
-            data-add-pitcher={side}
-          >
-            ピッチャー追加
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={saving || sideForm.pitchers.length <= 1}
+              onClick={() => onRemovePitcher(side)}
+              data-remove-pitcher={side}
+            >
+              ピッチャー削除
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={saving}
+              onClick={() => onAddPitcher(side)}
+              data-add-pitcher={side}
+            >
+              ピッチャー追加
+            </Button>
+          </Stack>
         </Stack>
         <Stack spacing={1}>
           {sideForm.pitchers.map((pitcher, index) => (
@@ -327,11 +364,15 @@ function normalizePitchers(pitchers, side) {
     : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, strikeouts: 0, order: 1 }];
 }
 
-function createPatchPayload(form, dirtyFields, addedPitchers, initialPitcherLengths) {
+function createPatchPayload(form, dirtyFields, addedPitchers, removedPitchers, initialPitcherLengths) {
   const payload = {
     battingOrderUpdates: { away: {}, home: {} },
     pitcherUpdates: { away: {}, home: {} },
-    addedPitchers: { away: [], home: [] }
+    addedPitchers: { away: [], home: [] },
+    removedPitchers: {
+      away: Math.max(0, Number(removedPitchers?.away || 0)),
+      home: Math.max(0, Number(removedPitchers?.home || 0))
+    }
   };
 
   for (const key of dirtyFields) {

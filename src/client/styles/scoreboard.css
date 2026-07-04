@@ -22,24 +22,3 @@
   width: 100%;
   height: auto;
 }
-
-.overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.88);
-  color: #ffffff;
-  font-size: clamp(48px, 15vw, 96px);
-  letter-spacing: 0;
-}
-
-.overlay.strikeout {
-  font-size: 80cqh;
-  line-height: 1;
-}
-
-.overlay.reverse {
-  transform: scaleX(-1);
-}
