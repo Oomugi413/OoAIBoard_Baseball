@@ -43,6 +43,11 @@ export function normalizeViewerSettings(raw) {
   };
 }
 
+/**
+ * x/y are the board's distance from the viewer stage's right/bottom edges (CSS
+ * `right`/`bottom`), not left/top. This keeps the bottom-right corner fixed when the
+ * board's own height shrinks (inning-transition/final-state fold), per data_model.md #6.
+ */
 export function getBoardTransform(settings, boardId) {
   const position = settings.boardPositions?.[boardId] || {};
   return {

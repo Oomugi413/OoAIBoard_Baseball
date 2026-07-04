@@ -283,7 +283,7 @@ function ViewerToolbar({
         inputProps={{ "data-viewer-size-input": "" }}
       />
       <DraftNumberField
-        label="位置X"
+        label="位置X(右基準)"
         disabled={disabled}
         value={draftTransform.x}
         onChange={(value) => setDraftTransform((current) => ({ ...current, x: value }))}
@@ -291,7 +291,7 @@ function ViewerToolbar({
         inputProps={{ "data-viewer-x": "" }}
       />
       <DraftNumberField
-        label="位置Y"
+        label="位置Y(下基準)"
         disabled={disabled}
         value={draftTransform.y}
         onChange={(value) => setDraftTransform((current) => ({ ...current, y: value }))}
@@ -341,13 +341,18 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
     const handle = event.target instanceof Element
       ? event.target.closest("[data-resize-handle]")?.dataset.resizeHandle || resolveResizeHandle(event)
       : "";
+    const stageRect = event.currentTarget.closest("[data-viewer-stage]")?.getBoundingClientRect();
+    const stageWidth = stageRect?.width || 0;
+    const stageHeight = stageRect?.height || 0;
     pointerState.current = {
       boardId: board.id,
       handle,
-      start: transform,
+      stageWidth,
+      stageHeight,
+      startLeft: stageWidth - transform.x - visualWidth,
+      startTop: stageHeight - transform.y - visualHeight,
       startWidth: visualWidth,
-      startRight: transform.x + visualWidth,
-      startBottom: transform.y + visualHeight,
+      scale: transform.scale,
       aspectRatio: boardAspectRatio,
       pointerX: event.clientX,
       pointerY: event.clientY
@@ -362,15 +367,17 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
     if (!current) return;
     const dx = event.clientX - current.pointerX;
     const dy = event.clientY - current.pointerY;
+    let next;
     if (current.handle) {
-      onTransform(resizeTransformFromPointer(current.handle, current.start, current.startWidth, current.startRight, current.startBottom, current.aspectRatio, dx, dy));
+      next = resizeFromPointer(current.handle, current.startLeft, current.startTop, current.startWidth, current.aspectRatio, dx, dy);
     } else {
-      onTransform({
-        x: Math.round(current.start.x + dx),
-        y: Math.round(current.start.y + dy),
-        scale: current.start.scale
-      });
+      next = { left: current.startLeft + dx, top: current.startTop + dy, width: current.startWidth, scale: current.scale };
     }
+    onTransform({
+      x: Math.round(current.stageWidth - next.left - next.width),
+      y: Math.round(current.stageHeight - next.top - next.width / current.aspectRatio),
+      scale: next.scale
+    });
   };
 
   const endPointer = (event) => {
@@ -391,8 +398,8 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
       onPointerCancel={endPointer}
       sx={{
         position: "absolute",
-        left: `${transform.x}px`,
-        top: `${transform.y}px`,
+        right: `${transform.x}px`,
+        bottom: `${transform.y}px`,
         width: `${visualWidth}px`,
         height: `${visualHeight}px`,
         zIndex,
@@ -462,16 +469,19 @@ function numberOrFallback(raw, fallback) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function resizeTransformFromPointer(handle, start, startVisualWidth, startRight, startBottom, aspectRatio, dx, dy) {
+function resizeFromPointer(handle, startLeft, startTop, startWidth, aspectRatio, dx, dy) {
+  const startRight = startLeft + startWidth;
+  const startBottom = startTop + startWidth / aspectRatio;
   const horizontalDelta = handle.includes("e") ? dx : handle.includes("w") ? -dx : 0;
   const verticalDelta = handle.includes("s") ? dy * aspectRatio : handle.includes("n") ? -dy * aspectRatio : 0;
   const widthDelta = Math.abs(horizontalDelta) >= Math.abs(verticalDelta) ? horizontalDelta : verticalDelta;
-  const scale = clampScale(((startVisualWidth + widthDelta) / DEFAULT_BOARD_WIDTH) * 100);
-  const nextWidth = scaleToBoardSize(scale);
-  const nextHeight = nextWidth / aspectRatio;
+  const scale = clampScale(((startWidth + widthDelta) / DEFAULT_BOARD_WIDTH) * 100);
+  const width = scaleToBoardSize(scale);
+  const height = width / aspectRatio;
   return {
-    x: handle.includes("w") ? Math.round(startRight - nextWidth) : start.x,
-    y: handle.includes("n") ? Math.round(startBottom - nextHeight) : start.y,
+    left: handle.includes("w") ? startRight - width : startLeft,
+    top: handle.includes("n") ? startBottom - height : startTop,
+    width,
     scale
   };
 }
