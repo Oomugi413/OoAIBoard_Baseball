@@ -74,6 +74,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
             {
               pitcherName: defaultPitcherName(side, order),
               pitchCount: 0,
+              strikeouts: 0,
               order
             }
           ]
@@ -188,11 +189,16 @@ function PlayerSideSection({
                 fullWidth
               />
               <TextField
-                label="守備位置"
-                value={player.position}
-                onChange={(event) => onBatterChange(side, index, "position", event.target.value)}
-                slotProps={{ htmlInput: { "data-player-field": `${side}:${index}:position` } }}
-                sx={{ width: { sm: 120 } }}
+                label="打数"
+                value={calculateAtBats(player)}
+                disabled
+                sx={{ width: { sm: 76 } }}
+              />
+              <TextField
+                label="安打数"
+                value={calculateHits(player)}
+                disabled
+                sx={{ width: { sm: 76 } }}
               />
               <FormControlLabel
                 sx={{ minWidth: 88 }}
@@ -250,7 +256,17 @@ function PlayerSideSection({
                 onChange={(event) =>
                   onPitcherChange(side, index, "pitchCount", Math.max(0, Number(event.target.value || 0)))
                 }
-                sx={{ width: { sm: 120 } }}
+                sx={{ width: { sm: 100 } }}
+              />
+              <TextField
+                label="三振数"
+                type="number"
+                value={pitcher.strikeouts}
+                slotProps={{ htmlInput: { min: 0, "data-pitcher-field": `${side}:${index}:strikeouts` } }}
+                onChange={(event) =>
+                  onPitcherChange(side, index, "strikeouts", Math.max(0, Number(event.target.value || 0)))
+                }
+                sx={{ width: { sm: 100 } }}
               />
             </Stack>
           ))}
@@ -287,7 +303,6 @@ function normalizeBattingOrder(players, side) {
     return {
       battingOrderNumber: Number(player?.battingOrderNumber) || index + 1,
       playerName: String(player?.playerName || `${label}.Batter${index + 1}`),
-      position: String(player?.position || ""),
       isPinchHitter: Boolean(player?.isPinchHitter),
       homeRuns: Number(player?.homeRuns || 0),
       hits: Number(player?.hits || 0),
@@ -304,9 +319,12 @@ function normalizePitchers(pitchers, side) {
     .map((pitcher, index) => ({
       pitcherName: String(pitcher?.pitcherName || defaultPitcherName(side, index + 1)),
       pitchCount: Math.max(0, Number(pitcher?.pitchCount || 0)),
+      strikeouts: Math.max(0, Number(pitcher?.strikeouts || 0)),
       order: Number.isFinite(Number(pitcher?.order)) ? Number(pitcher.order) : index + 1
     }));
-  return normalized.length ? normalized : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, order: 1 }];
+  return normalized.length
+    ? normalized
+    : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, strikeouts: 0, order: 1 }];
 }
 
 function createPatchPayload(form, dirtyFields, addedPitchers, initialPitcherLengths) {
@@ -331,9 +349,10 @@ function createPatchPayload(form, dirtyFields, addedPitchers, initialPitcherLeng
     if (kind === "pitcher" && index < initialPitcherLengths[side]) {
       const pitcher = form[side]?.pitchers?.[index];
       if (!pitcher) continue;
+      const isCountField = field === "pitchCount" || field === "strikeouts";
       payload.pitcherUpdates[side][index] = {
         ...(payload.pitcherUpdates[side][index] || {}),
-        [field]: field === "pitchCount" ? Math.max(0, Number(pitcher.pitchCount || 0)) : pitcher[field]
+        [field]: isCountField ? Math.max(0, Number(pitcher[field] || 0)) : pitcher[field]
       };
     }
   }
@@ -345,7 +364,8 @@ function createPatchPayload(form, dirtyFields, addedPitchers, initialPitcherLeng
       .slice(start, start + count)
       .map((pitcher) => ({
         pitcherName: String(pitcher.pitcherName || defaultPitcherName(side, 1)),
-        pitchCount: Math.max(0, Number(pitcher.pitchCount || 0))
+        pitchCount: Math.max(0, Number(pitcher.pitchCount || 0)),
+        strikeouts: Math.max(0, Number(pitcher.strikeouts || 0))
       }));
   }
 
@@ -364,6 +384,20 @@ function createPitcherLengthsFromForm(form) {
     away: Math.max(1, form.away?.pitchers?.length || 0),
     home: Math.max(1, form.home?.pitchers?.length || 0)
   };
+}
+
+function calculateHits(batter) {
+  return (batter.homeRuns || 0) + (batter.hits || 0);
+}
+
+function calculateAtBats(batter) {
+  return (
+    (batter.homeRuns || 0) +
+    (batter.hits || 0) +
+    (batter.strikeoutsSwinging || 0) +
+    (batter.strikeoutsLooking || 0) +
+    (batter.outs || 0)
+  );
 }
 
 function defaultPitcherName(side, order) {

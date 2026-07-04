@@ -83,7 +83,6 @@ function createDefaultSidePlayers(side) {
     battingOrder: Array.from({ length: 9 }, (_, index) => ({
       battingOrderNumber: index + 1,
       playerName: `${label}.Batter${index + 1}`,
-      position: "",
       isPinchHitter: false,
       homeRuns: 0,
       hits: 0,
@@ -96,6 +95,7 @@ function createDefaultSidePlayers(side) {
       {
         pitcherName: `${label}.Pitcher`,
         pitchCount: 0,
+        strikeouts: 0,
         order: 1
       }
     ]
@@ -347,6 +347,7 @@ function resetPlayerGameValues(playerSettings) {
     sideSettings.pitchers = (sideSettings.pitchers || []).map((pitcher, index) => ({
       ...pitcher,
       pitchCount: 0,
+      strikeouts: 0,
       order: Number.isFinite(Number(pitcher?.order)) ? Number(pitcher.order) : index + 1
     }));
   }
@@ -383,10 +384,12 @@ function applyPlateAppearance(board, result, settings) {
       break;
     case "strikeoutSwinging":
       addBatterStat(board, "strikeoutsSwinging");
+      addPitcherStat(board, "strikeouts");
       board.gameState.overlay = createOverlay("K", settings, false, "strikeout");
       break;
     case "strikeoutLooking":
       addBatterStat(board, "strikeoutsLooking");
+      addPitcherStat(board, "strikeouts");
       board.gameState.overlay = createOverlay("K", settings, true, "strikeout");
       break;
     case "other":
@@ -413,6 +416,15 @@ function addBatterStat(board, statName) {
   const batter = getCurrentBatter(board);
   if (!batter || typeof batter[statName] !== "number") return;
   batter[statName] += 1;
+}
+
+function addPitcherStat(board, statName) {
+  const pitcher = getCurrentPitcher(board);
+  if (!pitcher) return;
+  // 既存データ（このフィールド追加前に保存されたピッチャー記録）にも対応できるよう、
+  // 数値でない場合は0として扱ってから加算する。
+  const current = typeof pitcher[statName] === "number" ? pitcher[statName] : 0;
+  pitcher[statName] = current + 1;
 }
 
 function advanceBatter(board) {
@@ -611,7 +623,6 @@ function patchPlayers(board, payload) {
         if (batter.playerName !== playerName) resetBatterStats(batter);
         batter.playerName = playerName;
       }
-      if (Object.hasOwn(values, "position")) batter.position = String(values.position || "");
       if (Object.hasOwn(values, "isPinchHitter")) batter.isPinchHitter = Boolean(values.isPinchHitter);
     }
 
@@ -622,6 +633,7 @@ function patchPlayers(board, payload) {
       if (!pitcher) continue;
       if (Object.hasOwn(values, "pitcherName")) pitcher.pitcherName = String(values.pitcherName || "");
       if (Object.hasOwn(values, "pitchCount")) pitcher.pitchCount = Math.max(0, Number(values.pitchCount || 0));
+      if (Object.hasOwn(values, "strikeouts")) pitcher.strikeouts = Math.max(0, Number(values.strikeouts || 0));
     }
 
     const addedPitchers = Array.isArray(payload?.addedPitchers?.[side]) ? payload.addedPitchers[side] : [];
@@ -632,6 +644,7 @@ function patchPlayers(board, payload) {
         {
           pitcherName: String(added?.pitcherName || `${side === SIDES.AWAY ? "A" : "B"}.Pitcher${order}`),
           pitchCount: Math.max(0, Number(added?.pitchCount || 0)),
+          strikeouts: Math.max(0, Number(added?.strikeouts || 0)),
           order
         }
       ];

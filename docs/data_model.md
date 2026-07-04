@@ -154,13 +154,11 @@
 - home pitchers
 - current batting order index
 - pinch hitter flag
-- position text
 
 バッター情報:
 
 - batting order number
 - player name
-- position
 - is pinch hitter
 - home runs
 - hits
@@ -174,23 +172,24 @@
 - hit count = home runs + hits
 - at bat count = home runs + hits + strikeouts swinging + strikeouts looking + outs
 - `others` は四死球、打撃妨害などを想定し、打数には含めない。
+- 選手名メニューの打者行には、守備位置の入力欄は置かない。代わりに、上記の式で計算した「打数」「安打数」を読み取り専用の欄として表示する（編集はできない。実際のスタッツはホームラン/ヒット/三振/凡退などの打席結果ボタンでのみ変化する）。
 
 ピッチャー情報:
 
 - pitcher name
 - pitch count
+- strikeouts（空振り三振・見逃し三振の合計）
 - order in pitching list
-- strikeouts swinging（そのピッチャーが奪った空振り三振の累計）
-- strikeouts looking（そのピッチャーが奪った見逃し三振の累計）
 
 現在のピッチャー:
 
 - 現在のピッチャーは、各チームのピッチャー一覧の最後の人とする。
 - 選手名メニューからピッチャーを追加できる。
-- ピッチャー名と球数は、ピッチャー一覧の行ごとに保存する。
-- 空振り三振・見逃し三振の集計は、ピッチャー一覧の行ごとに保存する。バッター成績の`strikeouts swinging`/`strikeouts looking`（打者個人の当該打席の結果）とは別の値で、守備側の現在のピッチャーへ加算する。
-- 三振演出（一時演出参照）で表示する数値は、その打席で三振を奪った現在のピッチャーの空振り三振・見逃し三振の合計とする。
-- 空振り三振・見逃し三振の集計は、スコアリセットで0に戻す対象に含める。
+- ピッチャー名、球数、三振数は、ピッチャー一覧の行ごとに保存する。
+- 三振数は、打席結果が空振り三振または見逃し三振になるたびに、守備側の現在のピッチャーへ1加算する（バッター成績の`strikeouts swinging`/`strikeouts looking`とは別の、ピッチャー側の集計値）。
+- 三振演出（一時演出参照）で表示する数値は、その打席で三振を奪った現在のピッチャーの三振数とする。
+- 三振数は、球数と同様に選手名メニューで手動修正できる。
+- 三振数は、スコアリセットで0に戻す対象に含める。
 
 表示ルール:
 

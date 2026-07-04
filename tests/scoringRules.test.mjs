@@ -114,4 +114,20 @@ function run(board, type, payload = {}) {
   assert.equal(getCurrentBatter(board).playerName, "A.Batter2");
 }
 
+{
+  let board = createBoard("test");
+  board = run(board, "plate:result", { result: "strikeoutSwinging" });
+  board = run(board, "plate:result", { result: "strikeoutLooking" });
+  assert.equal(getCurrentPitcher(board).strikeouts, 2);
+  board = run(board, "history:undo");
+  assert.equal(getCurrentPitcher(board).strikeouts, 1);
+  board = run(board, "game:reset");
+  assert.equal(getCurrentPitcher(board).strikeouts, 0);
+}
+
+{
+  let board = createBoard("test");
+  assert.equal(board.playerSettings.away.battingOrder[0].position, undefined);
+}
+
 console.log("scoringRules tests passed");
