@@ -158,12 +158,31 @@ export default function ScoreInputPage() {
           sx={{
             position: { lg: "sticky" },
             top: { lg: 80 },
+            zIndex: (theme) => theme.zIndex.appBar - 1,
             width: "100%",
             minWidth: 0,
-            "& .scoreboard": { minWidth: 0 }
+            height: {
+              xs: "calc(((100vw - 16px) * 560 / 1200) + 16px)",
+              sm: "calc(((100vw - 32px) * 560 / 1200) + 16px)",
+              lg: "auto"
+            },
+            maxHeight: { xs: 210, sm: 280, lg: "none" }
           }}
         >
-          <ScoreboardView board={board} />
+          <Box
+            sx={{
+              position: { xs: "fixed", lg: "static" },
+              top: { xs: 64, sm: 72, lg: "auto" },
+              left: { xs: 1, sm: 2, lg: "auto" },
+              right: { xs: 1, sm: 2, lg: "auto" },
+              zIndex: (theme) => theme.zIndex.appBar - 1,
+              backgroundColor: "background.default",
+              borderRadius: 1.25,
+              "& .scoreboard": { minWidth: 0 }
+            }}
+          >
+            <ScoreboardView board={board} />
+          </Box>
         </Box>
         <Stack spacing={1.5} sx={{ minWidth: 0 }}>
           <ControlGroup title="投球">
