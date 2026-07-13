@@ -16,6 +16,7 @@ import TopBar from "../components/common/TopBar.jsx";
 import EditMenu from "../components/menus/EditMenu.jsx";
 import PlayerMenu from "../components/menus/PlayerMenu.jsx";
 import ScoreboardView from "../components/scoreboard/ScoreboardView.jsx";
+import { tokens } from "../tokens.js";
 
 const BASE_LABELS = {
   first: "一塁",
@@ -30,7 +31,10 @@ function ControlGroup({ title, children }) {
   return (
     <Card variant="outlined" sx={{ minWidth: 0 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{ mb: 1, color: tokens.groupLabelColor, fontWeight: 700 }}
+        >
           {title}
         </Typography>
         <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} useFlexGap sx={{ flexWrap: "wrap", minWidth: 0 }}>

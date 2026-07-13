@@ -243,7 +243,7 @@ function ViewerToolbar({
         gap: 1,
         alignItems: "center",
         p: 1.5,
-        bgcolor: "rgba(244, 246, 248, 0.94)",
+        bgcolor: "background.paper",
         borderBottom: "1px solid",
         borderColor: "divider",
         "& > *": { minWidth: 0 }

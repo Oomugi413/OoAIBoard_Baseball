@@ -35,7 +35,7 @@ export default function TopBar({ title }) {
   const close = () => setOpen(false);
   return (
     <>
-      <AppBar position="sticky" color="primary" elevation={2}>
+      <AppBar position="sticky">
         <Toolbar sx={{ gap: 1 }}>
           <IconButton
             color="inherit"
