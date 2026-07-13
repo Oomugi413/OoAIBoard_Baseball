@@ -4,37 +4,37 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Slider from "@mui/material/Slider";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useServerState } from "../api/useServerState.js";
 import TopBar from "../components/common/TopBar.jsx";
 import ScoreboardView from "../components/scoreboard/ScoreboardView.jsx";
-import { isBoardCollapsed } from "../../shared/scoringRules.mjs";
 import {
   BOARD_ASPECT_RATIO,
   DEFAULT_BOARD_WIDTH,
   MAX_BOARD_SCALE,
   MIN_BOARD_SCALE,
-  boardSizeToScale,
   clampScale,
   defaultBoardTransform,
   getBoardTransform,
   getBoardZIndex,
+  isBoardHidden,
   loadViewerSettings,
-  resetBoardTransform,
   saveViewerSettings,
   scaleToBoardSize,
+  setBoardHidden,
   setBoardTransform
 } from "../viewer/viewerSettings.js";
 
 const RESIZE_HANDLES = ["n", "e", "s", "w", "ne", "se", "sw", "nw"];
-const COMPACT_BOARD_ASPECT_RATIO = 1200 / 380;
 
 export default function ViewerPage() {
   const { state } = useServerState();
@@ -75,6 +75,7 @@ export default function ViewerPage() {
   const selectedTransform = selectedBoardId
     ? getBoardTransform(viewerSettings, selectedBoardId)
     : defaultBoardTransform(viewerSettings);
+  const selectedHidden = selectedBoardId ? isBoardHidden(viewerSettings, selectedBoardId) : false;
 
   const persistSettings = (next) => {
     const saved = saveViewerSettings(next);
@@ -91,9 +92,9 @@ export default function ViewerPage() {
     persistSettings(setBoardTransform(viewerSettings, selectedBoardId, next));
   };
 
-  const resetSelected = () => {
+  const updateSelectedHidden = (hidden) => {
     if (!selectedBoardId) return;
-    persistSettings(resetBoardTransform(viewerSettings, selectedBoardId));
+    persistSettings(setBoardHidden(viewerSettings, selectedBoardId, hidden));
   };
 
   const exportSettings = async () => {
@@ -127,11 +128,12 @@ export default function ViewerPage() {
           boards={boards}
           selectedBoardId={selectedBoardId}
           selectedTransform={selectedTransform}
+          selectedHidden={selectedHidden}
           backgroundColor={viewerSettings.backgroundColor}
           onBackground={updateBackground}
           onSelectBoard={selectBoard}
           onTransform={updateSelectedTransform}
-          onReset={resetSelected}
+          onHidden={updateSelectedHidden}
           onExport={exportSettings}
           onImport={() => fileInputRef.current?.click()}
         />
@@ -155,7 +157,7 @@ export default function ViewerPage() {
           }}
         >
           {boards.length ? (
-            boards.map((board) => (
+            boards.filter((board) => !isBoardHidden(viewerSettings, board.id)).map((board) => (
               <ViewerBoard
                 key={board.id}
                 board={board}
@@ -196,15 +198,16 @@ function ViewerToolbar({
   boards,
   selectedBoardId,
   selectedTransform,
+  selectedHidden,
   backgroundColor,
   onBackground,
   onSelectBoard,
   onTransform,
-  onReset,
+  onHidden,
   onExport,
   onImport
 }) {
-  const disabled = !boards.length;
+  const disabled = !selectedBoardId;
   const scale = Math.round(selectedTransform.scale);
   const [draftTransform, setDraftTransform] = useState(() => createViewerDraft(selectedTransform));
 
@@ -213,25 +216,7 @@ function ViewerToolbar({
   }, [selectedBoardId, selectedTransform.scale, selectedTransform.x, selectedTransform.y]);
 
   const updateDraftScale = (rawValue) => {
-    setDraftTransform((current) => {
-      const number = Number(rawValue);
-      return {
-        ...current,
-        scale: rawValue,
-        size: Number.isFinite(number) ? String(scaleToBoardSize(number)) : current.size
-      };
-    });
-  };
-
-  const updateDraftSize = (rawValue) => {
-    setDraftTransform((current) => {
-      const number = Number(rawValue);
-      return {
-        ...current,
-        size: rawValue,
-        scale: Number.isFinite(number) ? String(Math.round(boardSizeToScale(number))) : current.scale
-      };
-    });
+    setDraftTransform((current) => ({ ...current, scale: rawValue }));
   };
 
   return (
@@ -257,7 +242,7 @@ function ViewerToolbar({
         size="small"
         data-viewer-bg
       />
-      <FormControl size="small" disabled={disabled}>
+      <FormControl size="small" disabled={!boards.length}>
         <InputLabel id="viewer-board-select-label">位置対象</InputLabel>
         <Select
           labelId="viewer-board-select-label"
@@ -293,16 +278,6 @@ function ViewerToolbar({
         inputProps={{ "data-viewer-scale-input": "" }}
       />
       <DraftNumberField
-        label="サイズ(px)"
-        disabled={disabled}
-        value={draftTransform.size}
-        onChange={updateDraftSize}
-        onApply={() =>
-          onTransform({ scale: boardSizeToScale(numberOrFallback(draftTransform.size, scaleToBoardSize(scale))) })
-        }
-        inputProps={{ "data-viewer-size-input": "" }}
-      />
-      <DraftNumberField
         label="位置X(右基準)"
         disabled={disabled}
         value={draftTransform.x}
@@ -318,8 +293,19 @@ function ViewerToolbar({
         onApply={() => onTransform({ y: numberOrFallback(draftTransform.y, selectedTransform.y) })}
         inputProps={{ "data-viewer-y": "" }}
       />
+      <FormControlLabel
+        control={(
+          <Switch
+            checked={selectedHidden}
+            disabled={disabled}
+            onChange={(event) => onHidden(event.target.checked)}
+            slotProps={{ input: { "data-viewer-hidden": "" } }}
+          />
+        )}
+        label="非表示"
+        sx={{ m: 0 }}
+      />
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-        <Button disabled={disabled} onClick={onReset}>表示リセット</Button>
         <Button onClick={onExport}>書き出し</Button>
         <Button onClick={onImport}>読み込み</Button>
       </Stack>
@@ -352,25 +338,8 @@ function DraftNumberField({ label, disabled, value, onChange, onApply, inputProp
 
 function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform }) {
   const pointerState = useRef(null);
-  const [, refreshTransition] = useState(0);
   const visualWidth = scaleToBoardSize(transform.scale);
-  const effectiveShowMatchup = board.displayOptions.showMatchup && !isBoardCollapsed(board.gameState);
-  const boardAspectRatio = effectiveShowMatchup ? BOARD_ASPECT_RATIO : COMPACT_BOARD_ASPECT_RATIO;
-  const visualHeight = visualWidth / boardAspectRatio;
-
-  // 攻守交代の中間表示は、サーバーからの新しい通知なしで10秒後に自動終了する。
-  // board propが更新されない限りこのコンポーネントは再レンダリングされないため、
-  // ScoreboardView内部と同様のタイマーがないと、折りたたみ状態のままの高さで
-  // 取り残され、展開後のスコアボード本体が枠からはみ出して見える不具合になる。
-  useEffect(() => {
-    const expiresAt = Number(board.gameState.halfInningTransition?.expiresAt || 0);
-    if (!expiresAt) return undefined;
-    const timeout = window.setTimeout(
-      () => refreshTransition((current) => current + 1),
-      Math.max(0, expiresAt - Date.now()) + 25
-    );
-    return () => window.clearTimeout(timeout);
-  }, [board.gameState.halfInningTransition?.expiresAt]);
+  const visualHeight = visualWidth / BOARD_ASPECT_RATIO;
 
   const startPointer = (event) => {
     if (event.button !== 0) return;
@@ -389,7 +358,7 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
       startTop: stageHeight - transform.y - visualHeight,
       startWidth: visualWidth,
       scale: transform.scale,
-      aspectRatio: boardAspectRatio,
+      aspectRatio: BOARD_ASPECT_RATIO,
       pointerX: event.clientX,
       pointerY: event.clientY
     };
@@ -437,12 +406,7 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
         right: `${transform.x}px`,
         bottom: `${transform.y}px`,
         width: `${visualWidth}px`,
-        // heightは明示指定しない。中の.scoreboardがGSAPでaspect-ratioを直接
-        // アニメーションさせる（useScoreboardFrame.js）ため、ここで別途pxの
-        // heightをCSSトランジションさせると、2つの独立したアニメーションの
-        // イージングがずれて、折りたたみ中に中身が外枠からはみ出して見える
-        // 不具合になっていた。高さは常に中身（.scoreboard）に追従させる。
-        height: "auto",
+        aspectRatio: `${BOARD_ASPECT_RATIO}`,
         zIndex,
         cursor: "move",
         touchAction: "none",
@@ -464,7 +428,17 @@ function ViewerBoard({ board, selected, transform, zIndex, onSelect, onTransform
           }}
         />
       ))}
-      <Box sx={{ width: "100%", pointerEvents: "none", "& .scoreboard": { minWidth: 0 } }}>
+      <Box
+        sx={{
+          position: "absolute",
+          right: 0,
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          pointerEvents: "none",
+          "& .scoreboard": { minWidth: 0 }
+        }}
+      >
         <ScoreboardView board={board} />
       </Box>
     </Box>
@@ -499,7 +473,6 @@ function createViewerDraft(transform) {
   const scale = Math.round(transform.scale);
   return {
     scale: String(scale),
-    size: String(scaleToBoardSize(scale)),
     x: String(Math.round(transform.x)),
     y: String(Math.round(transform.y))
   };

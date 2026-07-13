@@ -26,7 +26,8 @@ export function defaultViewerSettings() {
     defaultScale: 100,
     boardPositions: {},
     boardScales: {},
-    boardStackOrder: []
+    boardStackOrder: [],
+    hiddenBoardIds: []
   };
 }
 
@@ -39,7 +40,8 @@ export function normalizeViewerSettings(raw) {
     defaultScale: clampScale(numberOrDefault(raw?.defaultScale, migratedScale)),
     boardPositions: raw?.boardPositions && typeof raw.boardPositions === "object" ? raw.boardPositions : {},
     boardScales: raw?.boardScales && typeof raw.boardScales === "object" ? raw.boardScales : {},
-    boardStackOrder: Array.isArray(raw?.boardStackOrder) ? raw.boardStackOrder.map(String) : []
+    boardStackOrder: Array.isArray(raw?.boardStackOrder) ? raw.boardStackOrder.map(String) : [],
+    hiddenBoardIds: Array.isArray(raw?.hiddenBoardIds) ? [...new Set(raw.hiddenBoardIds.map(String))] : []
   };
 }
 
@@ -86,15 +88,17 @@ export function setBoardTransform(settings, boardId, next) {
   });
 }
 
-export function resetBoardTransform(settings, boardId) {
-  const positions = { ...(settings.boardPositions || {}) };
-  const scales = { ...(settings.boardScales || {}) };
-  delete positions[boardId];
-  delete scales[boardId];
+export function isBoardHidden(settings, boardId) {
+  return (settings.hiddenBoardIds || []).includes(boardId);
+}
+
+export function setBoardHidden(settings, boardId, hidden) {
+  const hiddenBoardIds = new Set(settings.hiddenBoardIds || []);
+  if (hidden) hiddenBoardIds.add(boardId);
+  else hiddenBoardIds.delete(boardId);
   return normalizeViewerSettings({
     ...settings,
-    boardPositions: positions,
-    boardScales: scales,
+    hiddenBoardIds: [...hiddenBoardIds],
     boardStackOrder: bumpBoardStackOrder(settings, boardId)
   });
 }
@@ -110,10 +114,6 @@ export function getBoardZIndex(settings, boardId) {
 
 export function scaleToBoardSize(scale) {
   return Math.round((DEFAULT_BOARD_WIDTH * clampScale(scale)) / 100);
-}
-
-export function boardSizeToScale(size) {
-  return (numberOrDefault(size, DEFAULT_BOARD_WIDTH) / DEFAULT_BOARD_WIDTH) * 100;
 }
 
 export function clampScale(scale) {
