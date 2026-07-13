@@ -2,15 +2,29 @@
 import { useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink } from "react-router-dom";
+
+/** 横3本線のメニューアイコン（追加ライブラリを使わないインラインSVG） */
+function MenuIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 6h16M4 12h16M4 18h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 /**
  * ページ共通の上部ナビゲーションバー。
@@ -23,9 +37,14 @@ export default function TopBar({ title }) {
     <>
       <AppBar position="sticky" color="primary" elevation={2}>
         <Toolbar sx={{ gap: 1 }}>
-          <Button color="inherit" onClick={() => setOpen(true)}>
-            メニュー
-          </Button>
+          <IconButton
+            color="inherit"
+            onClick={() => setOpen(true)}
+            aria-label="メニューを開く"
+            edge="start"
+          >
+            <MenuIcon />
+          </IconButton>
           <Typography
             variant="h6"
             component="div"
@@ -39,7 +58,7 @@ export default function TopBar({ title }) {
           >
             {title}
           </Typography>
-          <Box sx={{ width: 88 }} />
+          <Box sx={{ width: 40 }} />
         </Toolbar>
       </AppBar>
       <Drawer anchor="left" open={open} onClose={close}>
