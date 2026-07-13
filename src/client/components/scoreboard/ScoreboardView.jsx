@@ -9,7 +9,14 @@ import OverlayEffect, { OVERLAY_FADE_OUT_SECONDS } from "./OverlayEffect.jsx";
 import RollingText from "./animations/RollingText.jsx";
 import { useFadeOnChange } from "./animations/useFadeOnChange.js";
 import { useCollapseFade } from "./animations/useCollapseFade.js";
-import { isBoardCollapsed } from "../../../shared/scoringRules.mjs";
+import {
+  calculateBatterLine,
+  formatMatchupSummary,
+  getCurrentBatter,
+  getCurrentPitcher,
+  getDefendingSide,
+  isBoardCollapsed
+} from "../../../shared/scoringRules.mjs";
 import { frameGeometry } from "./frameGeometry.js";
 import { useScoreboardFrame } from "./useScoreboardFrame.js";
 
@@ -24,13 +31,13 @@ export default function ScoreboardView({ board }) {
   const [, refreshTransition] = useState(0);
   const away = board.teamSettings.away;
   const home = board.teamSettings.home;
-  const batter = currentBatter(board);
-  const pitcher = currentPitcher(board);
+  const batter = getCurrentBatter(board);
+  const pitcher = getCurrentPitcher(board);
   const showMatchup = board.displayOptions.showMatchup;
   const showAbs = board.displayOptions.showAbs;
   const overlay = activeOverlay(state.overlay);
   const attacking = state.inningHalf === "top" ? "away" : "home";
-  const defending = defendingSide(state);
+  const defending = getDefendingSide(state);
   const svgId = safeSvgId(board.id);
   const awayGradient = teamGradient(away.teamColor, "#ef2233");
   const homeGradient = teamGradient(home.teamColor, "#2c43e6");
@@ -98,7 +105,7 @@ export default function ScoreboardView({ board }) {
         viewBox={geometry.viewBox}
         preserveAspectRatio="xMidYMax meet"
         role="img"
-        aria-label={matchupSummary(board)}
+        aria-label={formatMatchupSummary(board)}
       >
         <defs>
           <linearGradient id={`boardBg-${svgId}`} x1="0" y1="0" x2="0" y2="1">
@@ -404,7 +411,7 @@ function MatchupSvg({ svgId, board, batter, pitcher, attacking, defending }) {
           {batter?.playerName || "N.Batter"}
         </text>
         <text className={`sb-text-${svgId} sb-stat-${svgId}`} x="1170" y="79" textAnchor="end">
-          {batterLine(batter)}
+          {calculateBatterLine(batter)}
         </text>
       </g>
       <line x1="30" y1="105" x2="1170" y2="105" stroke="#ffffff" strokeOpacity="0.16" strokeWidth="1" />
@@ -590,22 +597,6 @@ function OutsSvg({ svgId, outs }) {
   );
 }
 
-function currentBatter(board) {
-  const side = board.gameState.inningHalf === "top" ? "away" : "home";
-  const index = board.playerSettings.currentBattingOrderIndex[side] || 0;
-  return board.playerSettings[side].battingOrder[index];
-}
-
-function currentPitcher(board) {
-  const side = defendingSide(board.gameState);
-  const pitchers = board.playerSettings[side].pitchers;
-  return pitchers[pitchers.length - 1];
-}
-
-function defendingSide(gameState) {
-  return gameState.inningHalf === "top" ? "home" : "away";
-}
-
 function teamColor(board, side) {
   return board.teamSettings[side].teamColor;
 }
@@ -673,26 +664,6 @@ function adjustHexColor(hex, amount) {
 function batterLabel(batter) {
   if (!batter) return "1";
   return batter.isPinchHitter ? "PH" : String(batter.battingOrderNumber);
-}
-
-function batterLine(batter) {
-  if (!batter) return "0-0";
-  const hits = (batter.homeRuns || 0) + (batter.hits || 0);
-  const atBats =
-    (batter.homeRuns || 0) +
-    (batter.hits || 0) +
-    (batter.strikeoutsSwinging || 0) +
-    (batter.strikeoutsLooking || 0) +
-    (batter.outs || 0);
-  return `${hits}-${atBats}`;
-}
-
-function matchupSummary(board) {
-  const gameState = board.gameState;
-  const away = board.teamSettings.away;
-  const home = board.teamSettings.home;
-  const inningHalf = gameState.inningHalf === "top" ? "表" : "裏";
-  return `${away.abbreviation || away.name} ${gameState.score.away}-${gameState.score.home} ${home.abbreviation || home.name} ${gameState.inningNumber}回${inningHalf}`;
 }
 
 function activeOverlay(overlay) {

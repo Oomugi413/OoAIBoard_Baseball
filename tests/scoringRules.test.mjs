@@ -4,7 +4,8 @@ import {
   createBoard,
   createDefaultSettings,
   getCurrentBatter,
-  getCurrentPitcher
+  getCurrentPitcher,
+  normalizeBoardData
 } from "../src/shared/scoringRules.mjs";
 
 const settings = createDefaultSettings();
@@ -164,6 +165,7 @@ function run(board, type, payload = {}) {
 {
   let board = createBoard("test");
   assert.equal(board.playerSettings.away.pitchers.length, 1);
+  assert.ok(board.playerSettings.away.pitchers[0].pitcherId);
   board = run(board, "players:patch", {
     addedPitchers: {
       away: [{ pitcherName: "A.Pitcher2" }, { pitcherName: "A.Pitcher3" }]
@@ -178,6 +180,52 @@ function run(board, type, payload = {}) {
   // 1人しかいない場合は削除しても最後の1人は残す。
   board = run(board, "players:patch", { removedPitchers: { away: 10 } });
   assert.equal(board.playerSettings.away.pitchers.length, 1);
+}
+
+{
+  // A端末が削除対象を選んだ後にB端末が追加しても、対象IDの投手だけを削除する。
+  let board = createBoard("pitcher-id-concurrency");
+  board = run(board, "players:patch", {
+    addedPitchers: {
+      away: [
+        { pitcherId: "pitcher-2", pitcherName: "A.Pitcher2" },
+        { pitcherId: "pitcher-3", pitcherName: "A.Pitcher3" }
+      ]
+    }
+  });
+  const pitcherIdToRemove = board.playerSettings.away.pitchers[2].pitcherId;
+
+  board = run(board, "players:patch", {
+    addedPitchers: {
+      away: [{ pitcherId: "pitcher-4", pitcherName: "A.Pitcher4" }]
+    }
+  });
+  board = run(board, "players:patch", {
+    removedPitcherIds: { away: [pitcherIdToRemove] }
+  });
+
+  assert.deepEqual(
+    board.playerSettings.away.pitchers.map((pitcher) => pitcher.pitcherId),
+    [board.playerSettings.away.pitchers[0].pitcherId, "pitcher-2", "pitcher-4"]
+  );
+  board = run(board, "players:patch", {
+    pitcherUpdatesById: {
+      away: { "pitcher-2": { pitchCount: 27 } }
+    }
+  });
+  assert.equal(board.playerSettings.away.pitchers.find((pitcher) => pitcher.pitcherId === "pitcher-2").pitchCount, 27);
+  assert.equal(board.playerSettings.away.pitchers.find((pitcher) => pitcher.pitcherId === "pitcher-4").pitchCount, 0);
+}
+
+{
+  const board = createBoard("legacy-player-data");
+  delete board.playerSettings.away.pitchers[0].pitcherId;
+  board.playerSettings.matchupEnabled = true;
+  board.undoHistory = [{ playerSettings: structuredClone(board.playerSettings) }];
+  assert.equal(normalizeBoardData(board), true);
+  assert.ok(board.playerSettings.away.pitchers[0].pitcherId);
+  assert.ok(board.undoHistory[0].playerSettings.away.pitchers[0].pitcherId);
+  assert.equal(Object.hasOwn(board.playerSettings, "matchupEnabled"), false);
 }
 
 {

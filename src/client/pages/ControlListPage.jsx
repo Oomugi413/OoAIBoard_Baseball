@@ -14,18 +14,7 @@ import { api } from "../api/client.js";
 import { useServerState } from "../api/useServerState.js";
 import ConfirmDialog from "../components/common/ConfirmDialog.jsx";
 import TopBar from "../components/common/TopBar.jsx";
-
-/**
- * 対戦カードの要約テキストを組み立てる。
- * @param {any} board
- */
-function matchupSummary(board) {
-  const gameState = board.gameState;
-  const away = board.teamSettings.away;
-  const home = board.teamSettings.home;
-  const inningHalf = gameState.inningHalf === "top" ? "表" : "裏";
-  return `${away.abbreviation || away.name} ${gameState.score.away}-${gameState.score.home} ${home.abbreviation || home.name} ${gameState.inningNumber}回${inningHalf}`;
-}
+import { formatMatchupSummary } from "../../shared/scoringRules.mjs";
 
 /**
  * スコアボード1件分のカード。名前編集・選択・削除を扱う。
@@ -55,7 +44,7 @@ function BoardCard({ board, onRequestDelete, onRename }) {
               {board.name}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {matchupSummary(board)}
+              {formatMatchupSummary(board)}
             </Typography>
           </Box>
           <TextField

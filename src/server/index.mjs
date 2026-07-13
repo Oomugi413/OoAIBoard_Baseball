@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import {
   applyAction,
   createBoard,
-  createDefaultSettings
+  createDefaultSettings,
+  normalizeBoardData
 } from "../shared/scoringRules.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,8 @@ const DEFAULT_PORT = Number(process.env.PORT || 52582);
 const HOST = process.env.HOST || "0.0.0.0";
 const MAX_PORT_ATTEMPTS = 20;
 const MAX_LOGO_UPLOAD_BYTES = 750 * 1024;
+let saveQueue = Promise.resolve();
+let saveSequence = 0;
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -41,8 +44,12 @@ const mimeTypes = new Map([
 
 const sseClients = new Set();
 let state = await loadState();
+const migratedBoardData = state.boards.reduce(
+  (changed, board) => normalizeBoardData(board) || changed,
+  false
+);
 await cleanupExpiredBoards();
-await saveState();
+if (migratedBoardData) await saveState();
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -74,7 +81,6 @@ async function handleRequest(req, res) {
   if (url.pathname.startsWith("/api/")) {
     await cleanupExpiredBoards();
     await handleApi(req, res, url);
-    await saveState();
     return;
   }
 
@@ -123,6 +129,7 @@ async function handleApi(req, res, url) {
       overlayDisplaySeconds: Math.max(1, Number(body.overlayDisplaySeconds || state.settings.overlayDisplaySeconds))
     };
     delete state.settings.lastAppAccessAt;
+    await saveState();
     broadcast("settings changed", { settings: state.settings });
     sendJson(res, 200, state.settings);
     return;
@@ -137,6 +144,7 @@ async function handleApi(req, res, url) {
     const body = await readJsonBody(req);
     const preset = createTeamPreset(body);
     state.presets.push(preset);
+    await saveState();
     broadcast("preset changed", { preset });
     sendJson(res, 201, preset);
     return;
@@ -149,6 +157,7 @@ async function handleApi(req, res, url) {
       sendJson(res, 400, { error: result.error });
       return;
     }
+    await saveState();
     broadcast("preset order changed", { presets: state.presets });
     sendJson(res, 200, state.presets);
     return;
@@ -166,6 +175,7 @@ async function handleApi(req, res, url) {
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
       state.presets[presetIndex] = updateTeamPreset(state.presets[presetIndex], body);
+      await saveState();
       broadcast("preset changed", { preset: state.presets[presetIndex] });
       sendJson(res, 200, state.presets[presetIndex]);
       return;
@@ -183,6 +193,7 @@ async function handleApi(req, res, url) {
         }
         if (unlinked) boardIds.push(board.id);
       }
+      await saveState();
       broadcast("preset deleted", { presetId: deleted.id, boardIds });
       sendJson(res, 200, { ok: true });
       return;
@@ -198,6 +209,7 @@ async function handleApi(req, res, url) {
     const body = await readJsonBody(req);
     const board = createBoard(randomUUID(), body.name || `Scoreboard ${state.boards.length + 1}`);
     state.boards.push(board);
+    await saveState();
     broadcast("board created", { board });
     sendJson(res, 201, board);
     return;
@@ -214,6 +226,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === "GET" && !boardMatch[2]) {
       state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
+      await saveState();
       sendJson(res, 200, state.boards[boardIndex]);
       return;
     }
@@ -227,6 +240,7 @@ async function handleApi(req, res, url) {
       }
       state.boards[boardIndex] = result.board;
       state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
+      await saveState();
       if (result.changed) {
         broadcast("board state changed", { board: state.boards[boardIndex] });
       }
@@ -236,6 +250,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === "DELETE" && !boardMatch[2]) {
       const [deleted] = state.boards.splice(boardIndex, 1);
+      await saveState();
       broadcast("board deleted", { boardId: deleted.id });
       sendJson(res, 200, { ok: true });
       return;
@@ -384,11 +399,18 @@ async function loadState() {
   }
 }
 
-async function saveState() {
-  await mkdir(storageDir, { recursive: true });
-  const temporaryFile = path.join(storageDir, `app.${process.pid}.${Date.now()}.tmp`);
-  await writeFile(temporaryFile, JSON.stringify(state, null, 2), "utf8");
-  await rename(temporaryFile, dataFile);
+function saveState() {
+  // Capture now and write snapshots in request order so an older rename cannot win a race.
+  const serialized = JSON.stringify(state, null, 2);
+  const sequence = ++saveSequence;
+  const operation = saveQueue.then(async () => {
+    await mkdir(storageDir, { recursive: true });
+    const temporaryFile = path.join(storageDir, `app.${process.pid}.${sequence}.tmp`);
+    await writeFile(temporaryFile, serialized, "utf8");
+    await rename(temporaryFile, dataFile);
+  });
+  saveQueue = operation.catch(() => {});
+  return operation;
 }
 
 function publicState() {

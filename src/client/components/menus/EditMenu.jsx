@@ -15,6 +15,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "../../api/client.js";
+import { createTeamLogoDataUrl, uploadTeamLogo } from "../../utils/teamLogo.js";
 
 const SIDES = ["away", "home"];
 const SIDE_LABELS = { away: "先攻", home: "後攻" };
@@ -61,7 +62,7 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
   const handleLogoFile = async (side, file) => {
     if (!file) return;
     try {
-      const dataUrl = await createLogoDataUrl(file);
+      const dataUrl = await createTeamLogoDataUrl(file);
       updateTeam(side, "logoPath", "");
       updateTeam(side, "pendingLogo", dataUrl);
     } catch (error) {
@@ -498,7 +499,7 @@ async function createTeamPatch(team, dirtyFields, side) {
     }
   }
   if (dirtyFields.has(`team:${side}:pendingLogo`)) {
-    values.logoPath = team.pendingLogo ? await uploadLogo(team.pendingLogo) : team.logoPath;
+    values.logoPath = team.pendingLogo ? await uploadTeamLogo(team.pendingLogo) : team.logoPath;
   } else if (dirtyFields.has(`team:${side}:logoPath`)) {
     values.logoPath = team.logoPath;
   }
@@ -520,7 +521,7 @@ function markTeamFieldsDirty(target, side, fields) {
 }
 
 async function resolveTeamForSave(team) {
-  const logoPath = team.pendingLogo ? await uploadLogo(team.pendingLogo) : team.logoPath;
+  const logoPath = team.pendingLogo ? await uploadTeamLogo(team.pendingLogo) : team.logoPath;
   return {
     name: team.name,
     abbreviation: team.abbreviation,
@@ -532,55 +533,6 @@ async function resolveTeamForSave(team) {
     abbreviationWidth: clampNumber(team.abbreviationWidth, MIN_ABBREVIATION_WIDTH, MAX_ABBREVIATION_WIDTH, 100),
     abbreviationCentered: Boolean(team.abbreviationCentered)
   };
-}
-
-async function uploadLogo(dataUrl) {
-  const result = await api("/api/uploads/team-logo", {
-    method: "POST",
-    body: JSON.stringify({ dataUrl })
-  });
-  return result.logoPath;
-}
-
-function createLogoDataUrl(file) {
-  const mimeType = detectLogoMimeType(file);
-  if (!mimeType) {
-    return Promise.reject(new Error("PNGまたはJPEG画像を選択してください。"));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
-    reader.addEventListener("load", () => {
-      const image = new Image();
-      image.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
-      image.addEventListener("load", () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 256;
-        canvas.height = 256;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          reject(new Error("画像を変換できませんでした。"));
-          return;
-        }
-        if (mimeType === "image/jpeg") {
-          context.fillStyle = "#ffffff";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL(mimeType === "image/png" ? "image/png" : "image/jpeg", 0.86));
-      });
-      image.src = String(reader.result || "");
-    });
-    reader.readAsDataURL(file);
-  });
-}
-
-function detectLogoMimeType(file) {
-  if (["image/png", "image/jpeg"].includes(file.type)) return file.type;
-  const name = String(file.name || "").toLowerCase();
-  if (name.endsWith(".png")) return "image/png";
-  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
-  return "";
 }
 
 function clampNumber(value, min, max, fallback) {

@@ -93,9 +93,9 @@ Codex GUI上でのやり取りや画面文言は日本語にする。
 
 - viewer background color
 - per-board viewer scale
-- per-device board size derived from scale
 - scoreboard positions
 - scoreboard display order based on last viewer adjustment
+- hidden scoreboard ids
 - viewer property export data
 
 ### 2.3 Control List Page

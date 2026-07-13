@@ -12,6 +12,7 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "../../api/client.js";
+import { calculateBatterStats, createPitcherId } from "../../../shared/scoringRules.mjs";
 
 const SIDES = ["away", "home"];
 const SIDE_LABELS = { away: "先攻", home: "後攻" };
@@ -31,9 +32,8 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   const [activeSide, setActiveSide] = useState("away");
   const [form, setForm] = useState(() => createPlayerForm(board));
   const dirtyFieldsRef = useRef(new Set());
-  const addedPitchersRef = useRef({ away: 0, home: 0 });
-  const removedPitchersRef = useRef({ away: 0, home: 0 });
-  const initialPitcherLengthsRef = useRef(createInitialPitcherLengths(board));
+  const removedPitcherIdsRef = useRef({ away: [], home: [] });
+  const initialPitcherIdsRef = useRef(createInitialPitcherIds(board));
 
   const updateBatter = (side, index, field, value) => {
     dirtyFieldsRef.current.add(`batter:${side}:${index}:${field}`);
@@ -49,20 +49,23 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   };
 
   const updatePitcher = (side, index, field, value) => {
-    dirtyFieldsRef.current.add(`pitcher:${side}:${index}:${field}`);
-    setForm((current) => ({
-      ...current,
-      [side]: {
-        ...current[side],
-        pitchers: current[side].pitchers.map((pitcher, pitcherIndex) =>
-          pitcherIndex === index ? { ...pitcher, [field]: value } : pitcher
-        )
-      }
-    }));
+    setForm((current) => {
+      const pitcherId = current[side].pitchers[index]?.pitcherId;
+      if (!pitcherId) return current;
+      dirtyFieldsRef.current.add(`pitcher:${side}:${pitcherId}:${field}`);
+      return {
+        ...current,
+        [side]: {
+          ...current[side],
+          pitchers: current[side].pitchers.map((pitcher, pitcherIndex) =>
+            pitcherIndex === index ? { ...pitcher, [field]: value } : pitcher
+          )
+        }
+      };
+    });
   };
 
   const addPitcher = (side) => {
-    addedPitchersRef.current[side] += 1;
     setForm((current) => {
       const pitchers = current[side].pitchers;
       const order = pitchers.length + 1;
@@ -73,6 +76,7 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
           pitchers: [
             ...pitchers,
             {
+              pitcherId: createPitcherId(),
               pitcherName: defaultPitcherName(side, order),
               pitchCount: 0,
               strikeouts: 0,
@@ -88,12 +92,12 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
     setForm((current) => {
       const pitchers = current[side].pitchers;
       if (pitchers.length <= 1) return current;
-      const isUnsavedAddition = pitchers.length > initialPitcherLengthsRef.current[side];
-      if (isUnsavedAddition) {
-        addedPitchersRef.current[side] = Math.max(0, addedPitchersRef.current[side] - 1);
-      } else {
-        initialPitcherLengthsRef.current[side] = Math.max(1, initialPitcherLengthsRef.current[side] - 1);
-        removedPitchersRef.current[side] += 1;
+      const removed = pitchers[pitchers.length - 1];
+      if (initialPitcherIdsRef.current[side].has(removed.pitcherId)) {
+        removedPitcherIdsRef.current[side] = [
+          ...removedPitcherIdsRef.current[side],
+          removed.pitcherId
+        ];
       }
       return {
         ...current,
@@ -108,24 +112,23 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
   const savePlayerMenu = async () => {
     setSaving(true);
     try {
-      await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
+      const saved = await api(`/api/boards/${encodeURIComponent(board.id)}/action`, {
         method: "POST",
         body: JSON.stringify({
           type: "players:patch",
           payload: createPatchPayload(
             form,
             dirtyFieldsRef.current,
-            addedPitchersRef.current,
-            removedPitchersRef.current,
-            initialPitcherLengthsRef.current
+            removedPitcherIdsRef.current,
+            initialPitcherIdsRef.current
           )
         })
       });
+      setForm(createPlayerForm(saved));
       await refresh();
       dirtyFieldsRef.current = new Set();
-      addedPitchersRef.current = { away: 0, home: 0 };
-      removedPitchersRef.current = { away: 0, home: 0 };
-      initialPitcherLengthsRef.current = createPitcherLengthsFromForm(form);
+      removedPitcherIdsRef.current = { away: [], home: [] };
+      initialPitcherIdsRef.current = createPitcherIdsFromForm(createPlayerForm(saved));
       onSaved("選手名メニューを保存しました。");
     } catch (error) {
       onError(error.message);
@@ -316,7 +319,6 @@ function PlayerSideSection({
 function createPlayerForm(board) {
   const source = board.playerSettings || {};
   return {
-    matchupEnabled: source.matchupEnabled !== false,
     currentBattingOrderIndex: {
       away: clampBattingIndex(source.currentBattingOrderIndex?.away),
       home: clampBattingIndex(source.currentBattingOrderIndex?.home)
@@ -354,6 +356,7 @@ function normalizeBattingOrder(players, side) {
 function normalizePitchers(pitchers, side) {
   const normalized = (Array.isArray(pitchers) ? pitchers : [])
     .map((pitcher, index) => ({
+      pitcherId: String(pitcher?.pitcherId || createPitcherId()),
       pitcherName: String(pitcher?.pitcherName || defaultPitcherName(side, index + 1)),
       pitchCount: Math.max(0, Number(pitcher?.pitchCount || 0)),
       strikeouts: Math.max(0, Number(pitcher?.strikeouts || 0)),
@@ -361,25 +364,26 @@ function normalizePitchers(pitchers, side) {
     }));
   return normalized.length
     ? normalized
-    : [{ pitcherName: defaultPitcherName(side, 1), pitchCount: 0, strikeouts: 0, order: 1 }];
+    : [{ pitcherId: createPitcherId(), pitcherName: defaultPitcherName(side, 1), pitchCount: 0, strikeouts: 0, order: 1 }];
 }
 
-function createPatchPayload(form, dirtyFields, addedPitchers, removedPitchers, initialPitcherLengths) {
+function createPatchPayload(form, dirtyFields, removedPitcherIds, initialPitcherIds) {
   const payload = {
     battingOrderUpdates: { away: {}, home: {} },
-    pitcherUpdates: { away: {}, home: {} },
+    pitcherUpdatesById: { away: {}, home: {} },
     addedPitchers: { away: [], home: [] },
-    removedPitchers: {
-      away: Math.max(0, Number(removedPitchers?.away || 0)),
-      home: Math.max(0, Number(removedPitchers?.home || 0))
+    removedPitcherIds: {
+      away: [...(removedPitcherIds?.away || [])],
+      home: [...(removedPitcherIds?.home || [])]
     }
   };
 
   for (const key of dirtyFields) {
-    const [kind, side, rawIndex, field] = key.split(":");
-    const index = Number(rawIndex);
-    if (!SIDES.includes(side) || !Number.isInteger(index)) continue;
+    const [kind, side, target, field] = key.split(":");
+    const index = Number(target);
+    if (!SIDES.includes(side)) continue;
     if (kind === "batter") {
+      if (!Number.isInteger(index)) continue;
       const player = form[side]?.battingOrder?.[index];
       if (!player) continue;
       payload.battingOrderUpdates[side][index] = {
@@ -387,23 +391,22 @@ function createPatchPayload(form, dirtyFields, addedPitchers, removedPitchers, i
         [field]: player[field]
       };
     }
-    if (kind === "pitcher" && index < initialPitcherLengths[side]) {
-      const pitcher = form[side]?.pitchers?.[index];
+    if (kind === "pitcher" && initialPitcherIds[side].has(target)) {
+      const pitcher = form[side]?.pitchers?.find((item) => item.pitcherId === target);
       if (!pitcher) continue;
       const isCountField = field === "pitchCount" || field === "strikeouts";
-      payload.pitcherUpdates[side][index] = {
-        ...(payload.pitcherUpdates[side][index] || {}),
+      payload.pitcherUpdatesById[side][target] = {
+        ...(payload.pitcherUpdatesById[side][target] || {}),
         [field]: isCountField ? Math.max(0, Number(pitcher[field] || 0)) : pitcher[field]
       };
     }
   }
 
   for (const side of SIDES) {
-    const start = initialPitcherLengths[side];
-    const count = addedPitchers[side] || 0;
     payload.addedPitchers[side] = form[side].pitchers
-      .slice(start, start + count)
+      .filter((pitcher) => !initialPitcherIds[side].has(pitcher.pitcherId))
       .map((pitcher) => ({
+        pitcherId: pitcher.pitcherId,
         pitcherName: String(pitcher.pitcherName || defaultPitcherName(side, 1)),
         pitchCount: Math.max(0, Number(pitcher.pitchCount || 0)),
         strikeouts: Math.max(0, Number(pitcher.strikeouts || 0))
@@ -413,32 +416,23 @@ function createPatchPayload(form, dirtyFields, addedPitchers, removedPitchers, i
   return payload;
 }
 
-function createInitialPitcherLengths(board) {
-  return {
-    away: Math.max(1, board.playerSettings?.away?.pitchers?.length || 0),
-    home: Math.max(1, board.playerSettings?.home?.pitchers?.length || 0)
-  };
+function createInitialPitcherIds(board) {
+  return createPitcherIdsFromForm(createPlayerForm(board));
 }
 
-function createPitcherLengthsFromForm(form) {
+function createPitcherIdsFromForm(form) {
   return {
-    away: Math.max(1, form.away?.pitchers?.length || 0),
-    home: Math.max(1, form.home?.pitchers?.length || 0)
+    away: new Set((form.away?.pitchers || []).map((pitcher) => pitcher.pitcherId)),
+    home: new Set((form.home?.pitchers || []).map((pitcher) => pitcher.pitcherId))
   };
 }
 
 function calculateHits(batter) {
-  return (batter.homeRuns || 0) + (batter.hits || 0);
+  return calculateBatterStats(batter).hits;
 }
 
 function calculateAtBats(batter) {
-  return (
-    (batter.homeRuns || 0) +
-    (batter.hits || 0) +
-    (batter.strikeoutsSwinging || 0) +
-    (batter.strikeoutsLooking || 0) +
-    (batter.outs || 0)
-  );
+  return calculateBatterStats(batter).atBats;
 }
 
 function defaultPitcherName(side, order) {

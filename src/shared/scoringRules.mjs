@@ -76,7 +76,6 @@ export function createDefaultTeamSettings() {
 
 export function createDefaultPlayerSettings() {
   return {
-    matchupEnabled: true,
     away: createDefaultSidePlayers(SIDES.AWAY),
     home: createDefaultSidePlayers(SIDES.HOME),
     currentBattingOrderIndex: {
@@ -102,6 +101,7 @@ function createDefaultSidePlayers(side) {
     })),
     pitchers: [
       {
+        pitcherId: createPitcherId(),
         pitcherName: `${label}.Pitcher`,
         pitchCount: 0,
         strikeouts: 0,
@@ -443,7 +443,7 @@ function applyPlateAppearance(board, result, settings) {
 }
 
 function incrementPitchCount(board) {
-  if (!board.displayOptions?.showMatchup && !board.playerSettings?.matchupEnabled) return;
+  if (!board.displayOptions?.showMatchup) return;
   const defendingSide = getDefendingSide(board.gameState);
   const pitchers = board.playerSettings?.[defendingSide]?.pitchers || [];
   if (!pitchers.length) return;
@@ -503,7 +503,12 @@ export function isBoardCollapsed(gameState) {
 }
 
 export function calculateBatterLine(batter) {
-  if (!batter) return "0-0";
+  const { hits, atBats } = calculateBatterStats(batter);
+  return `${hits}-${atBats}`;
+}
+
+export function calculateBatterStats(batter) {
+  if (!batter) return { hits: 0, atBats: 0 };
   const hits = (batter.homeRuns || 0) + (batter.hits || 0);
   const atBats =
     (batter.homeRuns || 0) +
@@ -511,7 +516,29 @@ export function calculateBatterLine(batter) {
     (batter.strikeoutsSwinging || 0) +
     (batter.strikeoutsLooking || 0) +
     (batter.outs || 0);
-  return `${hits}-${atBats}`;
+  return { hits, atBats };
+}
+
+export function formatMatchupSummary(board) {
+  const gameState = board.gameState;
+  const away = board.teamSettings.away;
+  const home = board.teamSettings.home;
+  const inningHalf = gameState.inningHalf === HALF.TOP ? "表" : "裏";
+  return `${away.abbreviation || away.name} ${gameState.score.away}-${gameState.score.home} ${home.abbreviation || home.name} ${gameState.inningNumber}回${inningHalf}`;
+}
+
+/**
+ * 保存済みの旧データへピッチャーIDを補い、廃止済みの重複状態を除去する。
+ * 現在値に加えて、undo/redoで復元され得る選手設定も正規化する。
+ */
+export function normalizeBoardData(board) {
+  let changed = normalizePlayerSettings(board?.playerSettings);
+  for (const historyName of ["undoHistory", "redoHistory"]) {
+    for (const snapshot of board?.[historyName] || []) {
+      changed = normalizePlayerSettings(snapshot?.playerSettings) || changed;
+    }
+  }
+  return changed;
 }
 
 function createOverlay(message, settings, options = {}) {
@@ -616,10 +643,6 @@ function patchBoardConfig(board, payload) {
       next.displayOptions.showMatchup = showMatchup;
       changed = true;
     }
-    if (next.playerSettings.matchupEnabled !== showMatchup) {
-      next.playerSettings.matchupEnabled = showMatchup;
-      changed = true;
-    }
   }
 
   if (!changed) return { board, changed: false };
@@ -641,7 +664,6 @@ function updateDisplayOptions(board, payload) {
     ...next.displayOptions,
     ...payload
   };
-  next.playerSettings.matchupEnabled = Boolean(next.displayOptions.showMatchup);
   next.updatedAt = new Date().toISOString();
   return { board: next, changed: true };
 }
@@ -664,6 +686,7 @@ function patchPlayers(board, payload) {
   for (const side of [SIDES.AWAY, SIDES.HOME]) {
     const sideSettings = playerSettings[side] || createDefaultSidePlayers(side);
     playerSettings[side] = sideSettings;
+    normalizePitcherList(sideSettings, side);
 
     const batterUpdates = payload?.battingOrderUpdates?.[side] || {};
     for (const [rawIndex, values] of Object.entries(batterUpdates)) {
@@ -683,17 +706,35 @@ function patchPlayers(board, payload) {
       const index = Number(rawIndex);
       const pitcher = sideSettings.pitchers?.[index];
       if (!pitcher) continue;
-      if (Object.hasOwn(values, "pitcherName")) pitcher.pitcherName = String(values.pitcherName || "");
-      if (Object.hasOwn(values, "pitchCount")) pitcher.pitchCount = Math.max(0, Number(values.pitchCount || 0));
-      if (Object.hasOwn(values, "strikeouts")) pitcher.strikeouts = Math.max(0, Number(values.strikeouts || 0));
+      applyPitcherValues(pitcher, values);
+    }
+
+    const pitcherUpdatesById = payload?.pitcherUpdatesById?.[side] || {};
+    for (const [pitcherId, values] of Object.entries(pitcherUpdatesById)) {
+      const pitcher = sideSettings.pitchers.find((item) => item.pitcherId === pitcherId);
+      if (pitcher) applyPitcherValues(pitcher, values);
+    }
+
+    const removedPitcherIds = new Set(
+      Array.isArray(payload?.removedPitcherIds?.[side])
+        ? payload.removedPitcherIds[side].map(String)
+        : []
+    );
+    if (removedPitcherIds.size > 0) {
+      const beforeRemoval = sideSettings.pitchers;
+      const remaining = beforeRemoval.filter((pitcher) => !removedPitcherIds.has(pitcher.pitcherId));
+      sideSettings.pitchers = remaining.length ? remaining : beforeRemoval.slice(0, 1);
     }
 
     const addedPitchers = Array.isArray(payload?.addedPitchers?.[side]) ? payload.addedPitchers[side] : [];
     for (const added of addedPitchers) {
+      const pitcherId = String(added?.pitcherId || "").trim() || createPitcherId();
+      if (sideSettings.pitchers.some((pitcher) => pitcher.pitcherId === pitcherId)) continue;
       const order = (sideSettings.pitchers || []).length + 1;
       sideSettings.pitchers = [
         ...(sideSettings.pitchers || []),
         {
+          pitcherId,
           pitcherName: String(added?.pitcherName || `${side === SIDES.AWAY ? "A" : "B"}.Pitcher${order}`),
           pitchCount: Math.max(0, Number(added?.pitchCount || 0)),
           strikeouts: Math.max(0, Number(added?.strikeouts || 0)),
@@ -708,10 +749,68 @@ function patchPlayers(board, payload) {
       const keepLength = Math.max(1, (sideSettings.pitchers || []).length - removedCount);
       sideSettings.pitchers = (sideSettings.pitchers || []).slice(0, keepLength);
     }
+    sideSettings.pitchers.forEach((pitcher, index) => {
+      pitcher.order = index + 1;
+    });
   }
 
   next.updatedAt = new Date().toISOString();
   return { board: next, changed: true };
+}
+
+function applyPitcherValues(pitcher, values) {
+  if (Object.hasOwn(values, "pitcherName")) pitcher.pitcherName = String(values.pitcherName || "");
+  if (Object.hasOwn(values, "pitchCount")) pitcher.pitchCount = Math.max(0, Number(values.pitchCount || 0));
+  if (Object.hasOwn(values, "strikeouts")) pitcher.strikeouts = Math.max(0, Number(values.strikeouts || 0));
+}
+
+function normalizePlayerSettings(playerSettings) {
+  if (!playerSettings || typeof playerSettings !== "object") return false;
+  let changed = false;
+  if (Object.hasOwn(playerSettings, "matchupEnabled")) {
+    delete playerSettings.matchupEnabled;
+    changed = true;
+  }
+  for (const side of [SIDES.AWAY, SIDES.HOME]) {
+    if (!playerSettings[side]) {
+      playerSettings[side] = createDefaultSidePlayers(side);
+      changed = true;
+    }
+    changed = normalizePitcherList(playerSettings[side], side) || changed;
+  }
+  return changed;
+}
+
+function normalizePitcherList(sideSettings, side) {
+  let changed = false;
+  if (!Array.isArray(sideSettings.pitchers) || sideSettings.pitchers.length === 0) {
+    sideSettings.pitchers = createDefaultSidePlayers(side).pitchers;
+    return true;
+  }
+  const usedIds = new Set();
+  sideSettings.pitchers.forEach((pitcher, index) => {
+    let pitcherId = String(pitcher?.pitcherId || "").trim();
+    if (!pitcherId || usedIds.has(pitcherId)) {
+      do {
+        pitcherId = createPitcherId();
+      } while (usedIds.has(pitcherId));
+      pitcher.pitcherId = pitcherId;
+      changed = true;
+    }
+    usedIds.add(pitcherId);
+    if (pitcher.order !== index + 1) {
+      pitcher.order = index + 1;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+export function createPitcherId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `pitcher-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function resetBatterStats(batter) {

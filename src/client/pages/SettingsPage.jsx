@@ -17,11 +17,12 @@ import { api } from "../api/client.js";
 import { useServerState } from "../api/useServerState.js";
 import ConfirmDialog from "../components/common/ConfirmDialog.jsx";
 import TopBar from "../components/common/TopBar.jsx";
+import { createTeamLogoDataUrl, uploadTeamLogo } from "../utils/teamLogo.js";
 
 export default function SettingsPage() {
   const { state, refresh } = useServerState();
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(state.settings));
-  const [settingsDirty, setSettingsDirty] = useState(false);
+  const settingsDirtyFieldsRef = useRef(new Set());
   const [presetForms, setPresetForms] = useState(() => createPresetForms(state.presets || []));
   const presetDirtyFieldsRef = useRef(new Set());
   const [saving, setSaving] = useState(false);
@@ -31,15 +32,15 @@ export default function SettingsPage() {
   const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (!settingsDirty) setSettingsForm(createSettingsForm(state.settings));
-  }, [settingsDirty, state.settings]);
+    setSettingsForm((current) => mergeSettingsForm(current, state.settings, settingsDirtyFieldsRef.current));
+  }, [state.settings]);
 
   useEffect(() => {
     setPresetForms((current) => mergePresetForms(current, state.presets || [], presetDirtyFieldsRef.current));
   }, [state.presets]);
 
   const updateSettings = (field, value) => {
-    setSettingsDirty(true);
+    settingsDirtyFieldsRef.current.add(field);
     setSettingsForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -57,7 +58,7 @@ export default function SettingsPage() {
   const handleLogoFile = async (presetId, file) => {
     if (!file) return;
     try {
-      const dataUrl = await createLogoDataUrl(file);
+      const dataUrl = await createTeamLogoDataUrl(file);
       markPresetDirty(presetDirtyFieldsRef.current, presetId, ["pendingLogo", "logoPath"]);
       setPresetForms((current) => ({
         ...current,
@@ -85,18 +86,28 @@ export default function SettingsPage() {
   };
 
   const saveSettings = async () => {
+    const submittedFields = new Set(settingsDirtyFieldsRef.current);
+    if (!submittedFields.size) {
+      setMessage("保存する変更はありません。");
+      return;
+    }
+    const submittedForm = { ...settingsForm };
+    const patch = createSettingsPatch(submittedForm, submittedFields);
     setSaving(true);
     try {
-      await api("/api/settings", {
+      const saved = await api("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({
-          autoCleanupEnabled: settingsForm.autoCleanupEnabled,
-          autoCleanupIdleHours: Math.max(1, Number(settingsForm.autoCleanupIdleHours || 24)),
-          overlayDisplaySeconds: Math.max(1, Number(settingsForm.overlayDisplaySeconds || 3))
-        })
+        body: JSON.stringify(patch)
+      });
+      setSettingsForm((current) => {
+        for (const field of submittedFields) {
+          if (String(current[field]) === String(submittedForm[field])) {
+            settingsDirtyFieldsRef.current.delete(field);
+          }
+        }
+        return mergeSettingsForm(current, saved, settingsDirtyFieldsRef.current);
       });
       await refresh();
-      setSettingsDirty(false);
       setMessage("全体設定を保存しました。");
     } catch (caught) {
       setError(caught.message);
@@ -134,7 +145,7 @@ export default function SettingsPage() {
     if (!form) return;
     setSaving(true);
     try {
-      const logoPath = form.pendingLogo ? await uploadLogo(form.pendingLogo) : form.logoPath;
+      const logoPath = form.pendingLogo ? await uploadTeamLogo(form.pendingLogo) : form.logoPath;
       const saved = await api(`/api/presets/${encodeURIComponent(presetId)}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -422,6 +433,30 @@ function createSettingsForm(settings = {}) {
   };
 }
 
+const SETTINGS_FORM_FIELDS = ["autoCleanupEnabled", "autoCleanupIdleHours", "overlayDisplaySeconds"];
+
+function mergeSettingsForm(current, settings, dirtyFields = new Set()) {
+  const serverForm = createSettingsForm(settings);
+  return Object.fromEntries(SETTINGS_FORM_FIELDS.map((field) => [
+    field,
+    dirtyFields.has(field) ? current[field] : serverForm[field]
+  ]));
+}
+
+function createSettingsPatch(form, dirtyFields) {
+  const patch = {};
+  if (dirtyFields.has("autoCleanupEnabled")) {
+    patch.autoCleanupEnabled = Boolean(form.autoCleanupEnabled);
+  }
+  if (dirtyFields.has("autoCleanupIdleHours")) {
+    patch.autoCleanupIdleHours = Math.max(1, Number(form.autoCleanupIdleHours || 24));
+  }
+  if (dirtyFields.has("overlayDisplaySeconds")) {
+    patch.overlayDisplaySeconds = Math.max(1, Number(form.overlayDisplaySeconds || 3));
+  }
+  return patch;
+}
+
 function createPresetForms(presets) {
   return Object.fromEntries(presets.map((preset) => [preset.id, createPresetForm(preset)]));
 }
@@ -472,53 +507,4 @@ function clearPresetDirty(target, presetId) {
   for (const key of Array.from(target)) {
     if (key.startsWith(`preset:${presetId}:`)) target.delete(key);
   }
-}
-
-async function uploadLogo(dataUrl) {
-  const result = await api("/api/uploads/team-logo", {
-    method: "POST",
-    body: JSON.stringify({ dataUrl })
-  });
-  return result.logoPath;
-}
-
-function createLogoDataUrl(file) {
-  const mimeType = detectLogoMimeType(file);
-  if (!mimeType) {
-    return Promise.reject(new Error("PNGまたはJPEG画像を選択してください。"));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
-    reader.addEventListener("load", () => {
-      const image = new Image();
-      image.addEventListener("error", () => reject(new Error("画像を読み込めませんでした。")));
-      image.addEventListener("load", () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 256;
-        canvas.height = 256;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          reject(new Error("画像を変換できませんでした。"));
-          return;
-        }
-        if (mimeType === "image/jpeg") {
-          context.fillStyle = "#ffffff";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL(mimeType === "image/png" ? "image/png" : "image/jpeg", 0.86));
-      });
-      image.src = String(reader.result || "");
-    });
-    reader.readAsDataURL(file);
-  });
-}
-
-function detectLogoMimeType(file) {
-  if (["image/png", "image/jpeg"].includes(file.type)) return file.type;
-  const name = String(file.name || "").toLowerCase();
-  if (name.endsWith(".png")) return "image/png";
-  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
-  return "";
 }
