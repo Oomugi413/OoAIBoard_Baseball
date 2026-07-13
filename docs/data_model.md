@@ -13,7 +13,7 @@
 - board name
 - created at
 - updated at
-- last accessed at
+- last accessed at（このボードへの最終アクセス時刻。ボード単位の自動削除判定に使う）
 - game state
 - team settings
 - player settings
@@ -79,7 +79,6 @@
 - team side: away or home
 - team name
 - abbreviation
-- abbreviation width
 - logo path
 - team color
 - text color
@@ -87,6 +86,8 @@
 - abbreviation width
 - abbreviation centered
 - linked preset id
+
+`linked preset id` は、どのプリセットを最後に読み込んだかを記録するためだけの値であり、プリセットの変更をチーム設定へ自動反映しない。該当プリセットが削除された場合は空にする（4章）。
 
 表示ルール:
 
@@ -124,6 +125,7 @@
 操作ルール:
 
 - Settings Pageでプリセットを作成、編集、削除できる。
+- プリセットを削除した場合、そのIDを `linked preset id` として持つ全スコアボードのチーム設定からIDを解除する。読み込み済みのチーム名、略称、ロゴ、色などの値は変更しない。
 - Settings Pageからプリセット並べ替え画面を開き、ドラッグ操作で表示順を変更できる。
 - Score Input Pageの編集メニューから、先攻/後攻それぞれへプリセットを読み込める。
 - Score Input Pageの編集メニューから、現在入力中のチーム設定を新しいプリセットとして保存できる。
@@ -242,16 +244,15 @@
 
 - auto cleanup enabled
 - auto cleanup idle hours
-- last app access at
 - overlay display seconds
 
 自動削除の初期設定:
 
 - 稼働中スコアボードはアプリ再起動後も残す。
-- ただし、24時間アプリにアクセスがない場合、すべての稼働中スコアボードを削除する。
+- ただし、各スコアボードが24時間アクセスされなかった場合は、そのスコアボードだけを削除する。ほかの稼働中スコアボードは残す（アプリ全体の最終アクセス時刻による全ボード一括削除はしない）。
 - この24時間の値と有効/無効は、全体の設定メニューで管理できるようにする。
 - チームプリセット、共通設定、閲覧画面設定は自動削除の対象外にする。
-- アプリへのアクセスは、Viewer Page、Control List Page、Score Input Page、Settings Pageの表示、またはSSE（リアルタイム）接続で更新する。
+- 各ボードの last accessed at は、そのボードの個別取得または操作のたびに更新する（1章）。ページの表示やSSE接続だけでは更新しない。
 
 一時演出:
 
@@ -262,7 +263,7 @@
 
 サーバーに保存するもの（アプリ終了後も残す）:
 
-- 稼働中スコアボード
+- 稼働中スコアボード（ボードごとの last accessed at を含む）
 - 削除していないスコアボードの試合状態
 - チームプリセット
 - チームプリセットの並び順

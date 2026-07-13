@@ -14,7 +14,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const distDir = path.join(rootDir, "dist");
-const storageDir = path.join(rootDir, "storage", "data");
+const storageDir = process.env.BASEBALL_STORAGE_DIR
+  ? path.resolve(process.env.BASEBALL_STORAGE_DIR)
+  : path.join(rootDir, "storage", "data");
 const uploadRootDir = path.join(rootDir, "storage", "uploads");
 const teamLogoDir = path.join(uploadRootDir, "team-logos");
 const dataFile = path.join(storageDir, "app.json");
@@ -39,8 +41,7 @@ const mimeTypes = new Map([
 
 const sseClients = new Set();
 let state = await loadState();
-cleanupIfIdle();
-touchAccess();
+await cleanupExpiredBoards();
 await saveState();
 
 const server = http.createServer(async (req, res) => {
@@ -71,8 +72,7 @@ async function handleRequest(req, res) {
   }
 
   if (url.pathname.startsWith("/api/")) {
-    cleanupIfIdle();
-    touchAccess();
+    await cleanupExpiredBoards();
     await handleApi(req, res, url);
     await saveState();
     return;
@@ -122,6 +122,7 @@ async function handleApi(req, res, url) {
       autoCleanupIdleHours: Math.max(1, Number(body.autoCleanupIdleHours || state.settings.autoCleanupIdleHours)),
       overlayDisplaySeconds: Math.max(1, Number(body.overlayDisplaySeconds || state.settings.overlayDisplaySeconds))
     };
+    delete state.settings.lastAppAccessAt;
     broadcast("settings changed", { settings: state.settings });
     sendJson(res, 200, state.settings);
     return;
@@ -331,8 +332,6 @@ function isJpeg(buffer) {
 }
 
 function handleSse(req, res) {
-  cleanupIfIdle();
-  touchAccess();
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-cache, no-transform",
@@ -356,12 +355,14 @@ async function loadState() {
   try {
     const raw = await readFile(dataFile, "utf8");
     const parsed = JSON.parse(raw);
+    const settings = {
+      ...createDefaultSettings(),
+      ...(parsed.settings || {})
+    };
+    delete settings.lastAppAccessAt;
     return {
       boards: Array.isArray(parsed.boards) ? parsed.boards : [],
-      settings: {
-        ...createDefaultSettings(),
-        ...(parsed.settings || {})
-      },
+      settings,
       presets: Array.isArray(parsed.presets) ? parsed.presets : []
     };
   } catch {
@@ -496,19 +497,21 @@ function clampNumber(value, min, max, fallback) {
   return Math.max(min, Math.min(max, Number.isFinite(number) ? number : fallback));
 }
 
-function cleanupIfIdle() {
+async function cleanupExpiredBoards() {
   if (!state.settings.autoCleanupEnabled) return;
-  const last = Date.parse(state.settings.lastAppAccessAt || "");
-  if (!Number.isFinite(last)) return;
   const idleMs = Math.max(1, Number(state.settings.autoCleanupIdleHours || 24)) * 60 * 60 * 1000;
-  if (Date.now() - last > idleMs && state.boards.length) {
-    state.boards = [];
-    broadcast("boards cleaned up", {});
-  }
-}
+  const cutoff = Date.now() - idleMs;
+  const removed = state.boards.filter((board) => {
+    const lastAccessedAt = Date.parse(board.lastAccessedAt || board.updatedAt || board.createdAt || "");
+    return Number.isFinite(lastAccessedAt) && lastAccessedAt < cutoff;
+  });
+  if (!removed.length) return;
 
-function touchAccess() {
-  state.settings.lastAppAccessAt = new Date().toISOString();
+  const boardIds = removed.map((board) => board.id);
+  const removedIds = new Set(boardIds);
+  state.boards = state.boards.filter((board) => !removedIds.has(board.id));
+  await saveState();
+  broadcast("boards cleaned up", { boardIds });
 }
 
 const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;

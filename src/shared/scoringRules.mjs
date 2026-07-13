@@ -122,7 +122,6 @@ export function createDefaultSettings() {
   return {
     autoCleanupEnabled: true,
     autoCleanupIdleHours: 24,
-    lastAppAccessAt: new Date().toISOString(),
     overlayDisplaySeconds: DEFAULT_OVERLAY_SECONDS
   };
 }
