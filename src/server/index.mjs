@@ -173,7 +173,17 @@ async function handleApi(req, res, url) {
 
     if (req.method === "DELETE") {
       const [deleted] = state.presets.splice(presetIndex, 1);
-      broadcast("preset deleted", { presetId: deleted.id });
+      const boardIds = [];
+      for (const board of state.boards) {
+        let unlinked = false;
+        for (const side of ["away", "home"]) {
+          if (board.teamSettings?.[side]?.linkedPresetId !== deleted.id) continue;
+          board.teamSettings[side].linkedPresetId = null;
+          unlinked = true;
+        }
+        if (unlinked) boardIds.push(board.id);
+      }
+      broadcast("preset deleted", { presetId: deleted.id, boardIds });
       sendJson(res, 200, { ok: true });
       return;
     }
