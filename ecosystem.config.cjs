@@ -1,8 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: "OoAIBoard_Baseball",
-      cwd: "/home/oomugi413/git/OoAIBoard_Baseball",
+      name: "OoAB_Baseball",
+      cwd: "/home/oomugi413/git/OoAB_Baseball",
       script: "npm",
       args: "start",
 
@@ -12,8 +12,8 @@ module.exports = {
       //},
 
       // ログファイル
-      out_file: "/home/oomugi413/git/OoAIBoard_Baseball/logs/out.log",
-      error_file: "/home/oomugi413/git/OoAIBoard_Baseball/logs/error.log",
+      out_file: "/home/oomugi413/git/OoAB_Baseball/logs/out.log",
+      error_file: "/home/oomugi413/git/OoAB_Baseball/logs/error.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
 
       // 異常終了時に自動再起動
