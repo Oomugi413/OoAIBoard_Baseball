@@ -78,7 +78,7 @@ function BoardCard({ board, onRequestDelete, onRename }) {
 }
 
 export default function ControlListPage() {
-  const { state, refresh } = useServerState();
+  const { state } = useServerState();
   const navigate = useNavigate();
   const boards = state.boards || [];
   const [deleteTarget, setDeleteTarget] = useState(/** @type {any} */ (null));
@@ -111,7 +111,6 @@ export default function ControlListPage() {
     if (!deleteTarget) return;
     try {
       await api(`/api/boards/${encodeURIComponent(deleteTarget.id)}`, { method: "DELETE" });
-      refresh();
     } catch (error) {
       setErrorMessage(error.message);
     } finally {

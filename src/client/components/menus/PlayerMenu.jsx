@@ -24,10 +24,9 @@ const SIDE_LABELS = { away: "先攻", home: "後攻" };
  *   onClose: () => void,
  *   onSaved: (message: string) => void,
  *   onError: (message: string) => void,
- *   refresh: () => Promise<void>
  * }} props
  */
-export default function PlayerMenu({ open, board, onClose, onSaved, onError, refresh }) {
+export default function PlayerMenu({ open, board, onClose, onSaved, onError }) {
   const [saving, setSaving] = useState(false);
   const [activeSide, setActiveSide] = useState("away");
   const [form, setForm] = useState(() => createPlayerForm(board));
@@ -125,7 +124,6 @@ export default function PlayerMenu({ open, board, onClose, onSaved, onError, ref
         })
       });
       setForm(createPlayerForm(saved));
-      await refresh();
       dirtyFieldsRef.current = new Set();
       removedPitcherIdsRef.current = { away: [], home: [] };
       initialPitcherIdsRef.current = createPitcherIdsFromForm(createPlayerForm(saved));

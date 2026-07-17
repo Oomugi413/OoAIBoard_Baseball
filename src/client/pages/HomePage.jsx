@@ -7,40 +7,44 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { Link } from "react-router-dom";
 import { useServerState } from "../api/useServerState.js";
+import TopBar from "../components/common/TopBar.jsx";
 
 export default function HomePage() {
   const { state, connected } = useServerState();
   const boardCount = state.boards.length;
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2 }}>
-      <Card sx={{ width: "min(520px, 100%)" }} elevation={3}>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Baseball Scoreboard
-          </Typography>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-            <Chip
-              size="small"
-              color={connected ? "success" : "default"}
-              label={`稼働中のスコアボード: ${boardCount}件`}
-            />
-            {!connected && (
-              <Typography variant="caption" color="text.secondary">
-                サーバーと再接続中…
-              </Typography>
-            )}
-          </Stack>
-          <Stack spacing={1.5} sx={{ mt: 3 }}>
-            <Button variant="contained" size="large" component={Link} to="/viewer">
-              スコアボードを見る
-            </Button>
-            <Button variant="contained" size="large" component={Link} to="/control">
-              スコアボードを動かす
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <TopBar title="HOME" />
+      <Box component="main" sx={{ flex: 1, display: "grid", placeItems: "center", p: 2 }}>
+        <Card sx={{ width: "min(520px, 100%)" }} elevation={3}>
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Baseball Scoreboard
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+              <Chip
+                size="small"
+                color={connected ? "success" : "default"}
+                label={`稼働中のスコアボード: ${boardCount}件`}
+              />
+              {!connected && (
+                <Typography variant="caption" color="text.secondary">
+                  サーバーと再接続中…
+                </Typography>
+              )}
+            </Stack>
+            <Stack spacing={1.5} sx={{ mt: 3 }}>
+              <Button variant="contained" size="large" component={Link} to="/viewer">
+                スコアボードを見る
+              </Button>
+              <Button variant="contained" size="large" component={Link} to="/control">
+                スコアボードを動かす
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
     </Box>
   );
 }

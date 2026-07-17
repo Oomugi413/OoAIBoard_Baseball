@@ -279,15 +279,6 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
     case "board:patchConfig":
       return patchBoardConfig(board, payload);
 
-    case "team:update":
-      return updateTeam(board, payload);
-
-    case "display:update":
-      return updateDisplayOptions(board, payload);
-
-    case "players:update":
-      return updatePlayers(board, payload);
-
     case "players:patch":
       return patchPlayers(board, payload);
 
@@ -581,19 +572,6 @@ function advanceForcedRunners(board) {
   runners.first = true;
 }
 
-function updateTeam(board, payload) {
-  const side = normalizeSide(payload.side);
-  if (!side) return { board, changed: false, error: "チーム側が不正です。" };
-  const next = structuredCloneCompat(board);
-  next.teamSettings[side] = {
-    ...next.teamSettings[side],
-    ...payload.values,
-    side
-  };
-  next.updatedAt = new Date().toISOString();
-  return { board: next, changed: true };
-}
-
 function patchBoardConfig(board, payload) {
   const next = structuredCloneCompat(board);
   next.teamSettings = next.teamSettings || createDefaultTeamSettings();
@@ -656,26 +634,6 @@ function patchBoardConfig(board, payload) {
     current[field] = value;
     changed = true;
   }
-}
-
-function updateDisplayOptions(board, payload) {
-  const next = structuredCloneCompat(board);
-  next.displayOptions = {
-    ...next.displayOptions,
-    ...payload
-  };
-  next.updatedAt = new Date().toISOString();
-  return { board: next, changed: true };
-}
-
-function updatePlayers(board, payload) {
-  const next = structuredCloneCompat(board);
-  next.playerSettings = {
-    ...next.playerSettings,
-    ...payload
-  };
-  next.updatedAt = new Date().toISOString();
-  return { board: next, changed: true };
 }
 
 function patchPlayers(board, payload) {

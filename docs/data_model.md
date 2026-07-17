@@ -124,6 +124,7 @@
 - logo path
 - team color
 - text color
+- abbreviation width
 - created at
 - updated at
 
@@ -285,6 +286,7 @@
 
 - 状態変更時だけ保存し、状態を変更しない一覧取得や設定取得では書き込まない。ボード個別取得は `last accessed at` が変わるため保存する。
 - 同時リクエストの保存はキューで直列化し、呼び出し時点のスナップショットを受信順に書き込む。古い一時ファイルのrenameが最新状態を上書きしないようにする。
+- undo historyとredo historyは`app.json`へ保存するが、ブラウザは参照しないためAPI応答とSSEの公開データから除外する。
 
 各ブラウザ（端末）内にだけ保存するもの:
 

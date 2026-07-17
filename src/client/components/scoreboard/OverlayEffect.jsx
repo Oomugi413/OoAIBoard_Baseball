@@ -10,7 +10,7 @@ export const OVERLAY_FADE_OUT_SECONDS = 0.4;
 /**
  * HOME RUN / 三振（K）の全面オーバーレイ演出。
  * `docs/operation.md` 18.1・18.2 の板フェード＋文字配置を実装する。
- * `showMatchup` が false のときはビューポートが縮んでいる（0 198 1200 362）ため、
+ * `showMatchup` が false のときはビューポートが縮んでいる（0 180 1200 380）ため、
  * それに合わせて板の高さと文字の中心Yを切り替える。
  *
  * @param {{

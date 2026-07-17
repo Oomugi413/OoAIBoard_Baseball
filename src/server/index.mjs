@@ -201,7 +201,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/boards") {
-    sendJson(res, 200, state.boards);
+    sendJson(res, 200, state.boards.map(publicBoard));
     return;
   }
 
@@ -210,8 +210,8 @@ async function handleApi(req, res, url) {
     const board = createBoard(randomUUID(), body.name || `Scoreboard ${state.boards.length + 1}`);
     state.boards.push(board);
     await saveState();
-    broadcast("board created", { board });
-    sendJson(res, 201, board);
+    broadcast("board created", { board: publicBoard(board) });
+    sendJson(res, 201, publicBoard(board));
     return;
   }
 
@@ -227,7 +227,7 @@ async function handleApi(req, res, url) {
     if (req.method === "GET" && !boardMatch[2]) {
       state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
       await saveState();
-      sendJson(res, 200, state.boards[boardIndex]);
+      sendJson(res, 200, publicBoard(state.boards[boardIndex]));
       return;
     }
 
@@ -235,16 +235,16 @@ async function handleApi(req, res, url) {
       const body = await readJsonBody(req);
       const result = applyAction(state.boards[boardIndex], body, state.settings);
       if (result.error) {
-        sendJson(res, 400, { error: result.error, board: result.board });
+        sendJson(res, 400, { error: result.error, board: publicBoard(result.board) });
         return;
       }
       state.boards[boardIndex] = result.board;
       state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
       await saveState();
       if (result.changed) {
-        broadcast("board state changed", { board: state.boards[boardIndex] });
+        broadcast("board state changed", { board: publicBoard(state.boards[boardIndex]) });
       }
-      sendJson(res, 200, state.boards[boardIndex]);
+      sendJson(res, 200, publicBoard(state.boards[boardIndex]));
       return;
     }
 
@@ -415,10 +415,15 @@ function saveState() {
 
 function publicState() {
   return {
-    boards: state.boards,
+    boards: state.boards.map(publicBoard),
     settings: state.settings,
     presets: state.presets
   };
+}
+
+function publicBoard(board) {
+  const { undoHistory: _undoHistory, redoHistory: _redoHistory, ...visibleBoard } = board;
+  return visibleBoard;
 }
 
 async function deleteUnusedTeamLogos() {

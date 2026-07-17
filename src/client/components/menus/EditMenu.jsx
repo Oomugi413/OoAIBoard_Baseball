@@ -32,10 +32,9 @@ const MAX_ABBREVIATION_WIDTH = 120;
  *   onClose: () => void,
  *   onSaved: (message: string) => void,
  *   onError: (message: string) => void,
- *   refresh: () => Promise<void>
  * }} props
  */
-export default function EditMenu({ open, board, presets, onClose, onSaved, onError, refresh }) {
+export default function EditMenu({ open, board, presets, onClose, onSaved, onError }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => createEditForm(board));
   const dirtyFieldsRef = useRef(new Set());
@@ -129,7 +128,6 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
       updateTeam(side, "selectedPresetId", preset.id);
       updateTeam(side, "logoPath", team.logoPath);
       updateTeam(side, "pendingLogo", "");
-      await refresh();
       onSaved("チームプリセットを保存しました。");
     } catch (error) {
       onError(error.message);
@@ -162,7 +160,6 @@ export default function EditMenu({ open, board, presets, onClose, onSaved, onErr
           [side]: createTeamForm(saved.teamSettings?.[side] || current.teams[side])
         }), {})
       }));
-      await refresh();
       onSaved("編集メニューを保存しました。");
     } catch (error) {
       onError(error.message);

@@ -1,5 +1,5 @@
 // @ts-check
-import { createContext, createElement, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState } from "react";
 import { api } from "./client.js";
 
 /**
@@ -13,7 +13,6 @@ import { api } from "./client.js";
  * @typedef {Object} ServerStateContextValue
  * @property {ServerState} state
  * @property {boolean} connected
- * @property {() => Promise<void>} refresh
  */
 
 const ServerStateContext = createContext(/** @type {ServerStateContextValue | null} */ (null));
@@ -27,11 +26,6 @@ const EMPTY_STATE = { boards: [], presets: [], settings: {} };
 export function ServerStateProvider({ children }) {
   const [state, setState] = useState(/** @type {ServerState} */ (EMPTY_STATE));
   const [connected, setConnected] = useState(false);
-
-  const refresh = useCallback(async () => {
-    const data = await api("/api/state");
-    setState(data);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +66,7 @@ export function ServerStateProvider({ children }) {
     };
   }, []);
 
-  return createElement(ServerStateContext.Provider, { value: { state, connected, refresh } }, children);
+  return createElement(ServerStateContext.Provider, { value: { state, connected } }, children);
 }
 
 /**

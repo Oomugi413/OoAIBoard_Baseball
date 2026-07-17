@@ -20,7 +20,7 @@ import TopBar from "../components/common/TopBar.jsx";
 import { createTeamLogoDataUrl, uploadTeamLogo } from "../utils/teamLogo.js";
 
 export default function SettingsPage() {
-  const { state, refresh } = useServerState();
+  const { state } = useServerState();
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(state.settings));
   const settingsDirtyFieldsRef = useRef(new Set());
   const [presetForms, setPresetForms] = useState(() => createPresetForms(state.presets || []));
@@ -107,7 +107,6 @@ export default function SettingsPage() {
         }
         return mergeSettingsForm(current, saved, settingsDirtyFieldsRef.current);
       });
-      await refresh();
       setMessage("全体設定を保存しました。");
     } catch (caught) {
       setError(caught.message);
@@ -131,7 +130,6 @@ export default function SettingsPage() {
           abbreviationWidth: 100
         })
       });
-      await refresh();
       setMessage("チームプリセットを作成しました。");
     } catch (caught) {
       setError(caught.message);
@@ -163,7 +161,6 @@ export default function SettingsPage() {
         ...current,
         [presetId]: createPresetForm(saved)
       }));
-      await refresh();
       setMessage("チームプリセットを保存しました。");
     } catch (caught) {
       setError(caught.message);
@@ -179,7 +176,6 @@ export default function SettingsPage() {
       await api(`/api/presets/${encodeURIComponent(deletePresetId)}`, { method: "DELETE" });
       clearPresetDirty(presetDirtyFieldsRef.current, deletePresetId);
       setDeletePresetId("");
-      await refresh();
       setMessage("チームプリセットを削除しました。");
     } catch (caught) {
       setError(caught.message);

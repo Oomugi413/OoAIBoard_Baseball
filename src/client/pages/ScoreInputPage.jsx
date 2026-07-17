@@ -88,7 +88,7 @@ function ActionButton({
 export default function ScoreInputPage() {
   const { boardId } = useParams();
   const navigate = useNavigate();
-  const { state, refresh } = useServerState();
+  const { state } = useServerState();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -105,7 +105,6 @@ export default function ScoreInputPage() {
         method: "POST",
         body: JSON.stringify({ type, payload })
       });
-      await refresh();
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -286,7 +285,6 @@ export default function ScoreInputPage() {
           onClose={() => setEditOpen(false)}
           onSaved={setMessage}
           onError={setMessage}
-          refresh={refresh}
         />
       ) : null}
       {playerOpen ? (
@@ -296,7 +294,6 @@ export default function ScoreInputPage() {
           onClose={() => setPlayerOpen(false)}
           onSaved={setMessage}
           onError={setMessage}
-          refresh={refresh}
         />
       ) : null}
       <ConfirmDialog

@@ -15,7 +15,7 @@ import { useServerState } from "../api/useServerState.js";
 import TopBar from "../components/common/TopBar.jsx";
 
 export default function PresetReorderPage() {
-  const { state, refresh } = useServerState();
+  const { state } = useServerState();
   const [orderedIds, setOrderedIds] = useState(() => (state.presets || []).map((preset) => preset.id));
   const [dragState, setDragState] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -92,7 +92,6 @@ export default function PresetReorderPage() {
         method: "PATCH",
         body: JSON.stringify({ presetIds })
       });
-      await refresh();
       setMessage("プリセットの順番を保存しました。");
     } catch (caught) {
       setError(caught.message);
