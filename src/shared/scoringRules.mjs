@@ -199,7 +199,9 @@ export function applyAction(board, action, settings = createDefaultSettings()) {
 
     case "outs:caughtStealing":
       return withHistory(board, (draft) => {
-        draft.gameState.outs = clamp(draft.gameState.outs + 1, 0, 3);
+        const nextOuts = clamp(draft.gameState.outs + 1, 0, 3);
+        if (nextOuts === draft.gameState.outs) return;
+        draft.gameState.outs = nextOuts;
         draft.gameState.keepCurrentBatterOnNextInning = true;
       });
 
@@ -291,10 +293,17 @@ function withHistory(board, mutator) {
   const draft = structuredCloneCompat(board);
   const snapshot = snapshotBoard(board);
   mutator(draft);
+  if (snapshotsEqual(snapshot, snapshotBoard(draft))) {
+    return { board, changed: false };
+  }
   draft.undoHistory = [...(board.undoHistory || []), snapshot].slice(-100);
   draft.redoHistory = [];
   draft.updatedAt = new Date().toISOString();
   return { board: draft, changed: true };
+}
+
+function snapshotsEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function undo(board) {

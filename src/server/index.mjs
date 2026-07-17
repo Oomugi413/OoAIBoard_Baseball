@@ -238,10 +238,10 @@ async function handleApi(req, res, url) {
         sendJson(res, 400, { error: result.error, board: publicBoard(result.board) });
         return;
       }
-      state.boards[boardIndex] = result.board;
-      state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
-      await saveState();
       if (result.changed) {
+        state.boards[boardIndex] = result.board;
+        state.boards[boardIndex].lastAccessedAt = new Date().toISOString();
+        await saveState();
         broadcast("board state changed", { board: publicBoard(state.boards[boardIndex]) });
       }
       sendJson(res, 200, publicBoard(state.boards[boardIndex]));

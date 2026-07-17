@@ -229,6 +229,88 @@ function run(board, type, payload = {}) {
 }
 
 {
+  // クランプ後も値が同じ操作は、履歴を増やさずchanged:falseにする。
+  let board = createBoard("noop-history");
+  const initialHistoryLength = board.undoHistory.length;
+  const scoreAtFloor = applyAction(
+    board,
+    { type: "score:adjust", payload: { side: "away", delta: -1 } },
+    settings
+  );
+  assert.equal(scoreAtFloor.changed, false);
+  assert.equal(scoreAtFloor.board.undoHistory.length, initialHistoryLength);
+
+  const countResetAtZero = applyAction(board, { type: "count:reset" }, settings);
+  assert.equal(countResetAtZero.changed, false);
+  assert.equal(countResetAtZero.board.undoHistory.length, initialHistoryLength);
+
+  board = run(board, "abs:adjust", { side: "away", delta: -2 });
+  const historyAtAbsFloor = board.undoHistory.length;
+  const absAtFloor = applyAction(
+    board,
+    { type: "abs:adjust", payload: { side: "away", delta: -1 } },
+    settings
+  );
+  assert.equal(absAtFloor.changed, false);
+  assert.equal(absAtFloor.board.undoHistory.length, historyAtAbsFloor);
+
+  board = run(board, "outs:adjust", { delta: 3 });
+  const historyAtOutsMax = board.undoHistory.length;
+  const caughtStealingAtMax = applyAction(board, { type: "outs:caughtStealing" }, settings);
+  assert.equal(caughtStealingAtMax.changed, false);
+  assert.equal(caughtStealingAtMax.board.undoHistory.length, historyAtOutsMax);
+}
+
+{
+  // 表示カウントが上限でも投手球数が増える投球は履歴対象にし、Undoで球数も戻す。
+  let board = createBoard("pitch-stat-history");
+  board = run(board, "count:balls", { delta: 10 });
+  const historyAtBallMax = board.undoHistory.length;
+  const manualCountAtBallMax = applyAction(
+    board,
+    { type: "count:balls", payload: { delta: 1 } },
+    settings
+  );
+  assert.equal(manualCountAtBallMax.changed, false);
+  assert.equal(manualCountAtBallMax.board.undoHistory.length, historyAtBallMax);
+
+  const pitchAtBallMax = applyAction(board, { type: "pitch:ball" }, settings);
+  assert.equal(pitchAtBallMax.changed, true);
+  assert.equal(pitchAtBallMax.board.gameState.balls, 4);
+  assert.equal(getCurrentPitcher(pitchAtBallMax.board).pitchCount, 1);
+  assert.equal(pitchAtBallMax.board.undoHistory.length, historyAtBallMax + 1);
+
+  board = run(pitchAtBallMax.board, "history:undo");
+  assert.equal(board.gameState.balls, 4);
+  assert.equal(getCurrentPitcher(board).pitchCount, 0);
+
+  board = run(board, "board:patchConfig", {
+    displayOptions: { showMatchup: false }
+  });
+  const historyWithMatchupHidden = board.undoHistory.length;
+  const pitchWithoutRecordedStat = applyAction(board, { type: "pitch:ball" }, settings);
+  assert.equal(pitchWithoutRecordedStat.changed, false);
+  assert.equal(pitchWithoutRecordedStat.board.undoHistory.length, historyWithMatchupHidden);
+}
+
+{
+  // 打席結果で変わる打者成績と打順は履歴に残り、Undoでまとめて復元する。
+  let board = createBoard("batter-stat-history");
+  const hitResult = applyAction(
+    board,
+    { type: "plate:result", payload: { result: "hit" } },
+    settings
+  );
+  assert.equal(hitResult.changed, true);
+  assert.equal(hitResult.board.playerSettings.away.battingOrder[0].hits, 1);
+  assert.equal(hitResult.board.playerSettings.currentBattingOrderIndex.away, 1);
+
+  board = run(hitResult.board, "history:undo");
+  assert.equal(board.playerSettings.away.battingOrder[0].hits, 0);
+  assert.equal(board.playerSettings.currentBattingOrderIndex.away, 0);
+}
+
+{
   let board = createBoard("test");
   assert.equal(board.playerSettings.away.battingOrder[0].position, undefined);
 }
